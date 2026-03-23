@@ -10,10 +10,15 @@ from app.config import settings
 from app.db.redis import close_redis, get_redis
 from app.db.session import AsyncSessionLocal, engine
 from app.modules.auth.router import router as auth_router
+from app.modules.adjustments.models import FuelStock, OilStock, Adjustment  # noqa: F401 – register models
+from app.modules.adjustments.router import router as adjustments_router
+from app.modules.eventlog.router import router as events_router
 from app.modules.generators.models import Generator, GeneratorSettings, EventLog  # noqa: F401 – register models
 from app.modules.generators.router import router as generators_router
 from app.modules.motohours.models import MotohoursLog, MaintenanceLog  # noqa: F401 – register models
 from app.modules.motohours.router import router as motohours_router
+from app.modules.outage.models import OutageSchedule  # noqa: F401 – register models
+from app.modules.outage.router import router as outage_router
 from app.modules.rules.service import RulesService  # noqa: F401
 from app.modules.shifts.models import Shift, SystemSettings  # noqa: F401 – register models
 from app.modules.shifts.repository import SystemSettingsRepository
@@ -87,6 +92,9 @@ app.include_router(users_router)
 app.include_router(generators_router, prefix="/api")
 app.include_router(motohours_router, prefix="/api")
 app.include_router(shifts_router, prefix="/api")
+app.include_router(adjustments_router, prefix="/api")
+app.include_router(outage_router, prefix="/api")
+app.include_router(events_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])

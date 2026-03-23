@@ -60,3 +60,9 @@ class MotohoursRepository:
         await self.db.commit()
         await self.db.refresh(entry)
         return entry
+
+    async def create_log_entry(self, entry: MotohoursLog) -> MotohoursLog:
+        self.db.add(entry)
+        await self.db.commit()
+        await self.db.refresh(entry)
+        return entry

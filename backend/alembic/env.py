@@ -11,6 +11,8 @@ from app.db.base import Base
 from app.modules.users.models import Role, Permission, User  # noqa: F401
 from app.modules.generators.models import Generator, GeneratorSettings, EventLog  # noqa: F401
 from app.modules.motohours.models import MotohoursLog, MaintenanceLog  # noqa: F401
+from app.modules.adjustments.models import FuelStock, OilStock, Adjustment  # noqa: F401
+from app.modules.outage.models import OutageSchedule  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
