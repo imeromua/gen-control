@@ -10,10 +10,15 @@ from app.config import settings
 from app.db.redis import close_redis, get_redis
 from app.db.session import AsyncSessionLocal, engine
 from app.modules.auth.router import router as auth_router
+from app.modules.fuel.models import FuelDelivery, FuelRefill, FuelStock  # noqa: F401 – register models
+from app.modules.fuel.repository import FuelRepository
+from app.modules.fuel.router import router as fuel_router
 from app.modules.generators.models import Generator, GeneratorSettings, EventLog  # noqa: F401 – register models
 from app.modules.generators.router import router as generators_router
 from app.modules.motohours.models import MotohoursLog, MaintenanceLog  # noqa: F401 – register models
 from app.modules.motohours.router import router as motohours_router
+from app.modules.oil.models import OilStock  # noqa: F401 – register models
+from app.modules.oil.router import router as oil_router
 from app.modules.rules.service import RulesService  # noqa: F401
 from app.modules.shifts.models import Shift, SystemSettings  # noqa: F401 – register models
 from app.modules.shifts.repository import SystemSettingsRepository
@@ -70,6 +75,21 @@ async def _seed_initial_data() -> None:
                 f"system_settings created: {settings.DEFAULT_WORK_TIME_START}–{settings.DEFAULT_WORK_TIME_END}"
             )
 
+        fuel_repo = FuelRepository(db)
+        existing_fuel_stock = await fuel_repo.get_stock()
+        if existing_fuel_stock is None:
+            logger.info("Seeding fuel_stock...")
+            db.add(
+                FuelStock(
+                    fuel_type="A95",
+                    current_liters=0,
+                    max_limit_liters=200,
+                    warning_level_liters=20,
+                )
+            )
+            await db.commit()
+            logger.info("fuel_stock created: A95, 0/200 liters, warning at 20")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -87,6 +107,8 @@ app.include_router(users_router)
 app.include_router(generators_router, prefix="/api")
 app.include_router(motohours_router, prefix="/api")
 app.include_router(shifts_router, prefix="/api")
+app.include_router(fuel_router, prefix="/api")
+app.include_router(oil_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])
