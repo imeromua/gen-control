@@ -31,3 +31,9 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role.name != RoleName.ADMIN:
         raise ForbiddenException(detail="Admin role required")
     return user
+
+
+async def require_admin_or_operator(user: User = Depends(get_current_user)) -> User:
+    if user.role.name not in (RoleName.ADMIN, RoleName.OPERATOR):
+        raise ForbiddenException(detail="Admin or Operator role required")
+    return user
