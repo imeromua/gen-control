@@ -12,6 +12,7 @@ from app.db.session import AsyncSessionLocal, engine
 from app.modules.adjustments.models import Adjustment  # noqa: F401 – register models
 from app.modules.adjustments.router import router as adjustments_router
 from app.modules.auth.router import router as auth_router
+from app.modules.dashboard.router import router as dashboard_router
 from app.modules.eventlog.router import router as events_router
 from app.modules.fuel.models import FuelDelivery, FuelRefill, FuelStock  # noqa: F401 – register models
 from app.modules.fuel.repository import FuelRepository
@@ -117,6 +118,7 @@ app.include_router(oil_router, prefix="/api")
 app.include_router(adjustments_router, prefix="/api")
 app.include_router(outage_router, prefix="/api")
 app.include_router(events_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])
