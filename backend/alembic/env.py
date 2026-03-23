@@ -9,6 +9,8 @@ from app.db.base import Base
 
 # Import all models so Alembic can detect them
 from app.modules.users.models import Role, Permission, User  # noqa: F401
+from app.modules.generators.models import Generator, GeneratorSettings, EventLog  # noqa: F401
+from app.modules.motohours.models import MotohoursLog, MaintenanceLog  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

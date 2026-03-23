@@ -9,6 +9,10 @@ from app.config import settings
 from app.db.redis import close_redis, get_redis
 from app.db.session import AsyncSessionLocal, engine
 from app.modules.auth.router import router as auth_router
+from app.modules.generators.models import Generator, GeneratorSettings, EventLog  # noqa: F401 – register models
+from app.modules.generators.router import router as generators_router
+from app.modules.motohours.models import MotohoursLog, MaintenanceLog  # noqa: F401 – register models
+from app.modules.motohours.router import router as motohours_router
 from app.modules.users.models import Role, User  # noqa: F401 – register models
 from app.modules.users.repository import UserRepository
 from app.modules.users.router import router as users_router
@@ -58,6 +62,8 @@ app = FastAPI(title="GenControl API", version="1.0.0", lifespan=lifespan)
 
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(generators_router, prefix="/api")
+app.include_router(motohours_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])
