@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.modules.auth.dependencies import require_admin
+from app.modules.auth.dependencies import require_admin, require_admin_or_operator
 from app.modules.generators.schemas import (
     GeneratorCreate,
     GeneratorResponse,
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/generators", tags=["generators"])
 
 @router.get("/", response_model=list[GeneratorResponse])
 async def list_generators(
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin_or_operator),
     db: AsyncSession = Depends(get_db),
 ):
     service = GeneratorService(db)
@@ -93,7 +93,7 @@ async def update_settings(
 @router.get("/{generator_id}/status", response_model=GeneratorStatusResponse)
 async def get_status(
     generator_id: uuid.UUID,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin_or_operator),
     db: AsyncSession = Depends(get_db),
 ):
     service = GeneratorService(db)
