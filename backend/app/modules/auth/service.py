@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
+import logging
 
 from jose import JWTError, jwt
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import UnauthorizedException
@@ -13,6 +15,8 @@ from app.modules.users.repository import UserRepository
 
 ALGORITHM = "HS256"
 REDIS_TOKEN_PREFIX = "token:"
+
+logger = logging.getLogger(__name__)
 
 
 def _create_access_token(user: User) -> str:
@@ -48,8 +52,13 @@ class AuthService:
         return TokenResponse(access_token=token)
 
     async def logout(self, token: str) -> None:
-        redis_key = f"{REDIS_TOKEN_PREFIX}{token}"
-        await self.redis.delete(redis_key)
+        try:
+            redis_key = f"{REDIS_TOKEN_PREFIX}{token}"
+            await self.redis.delete(redis_key)
+        except RedisError:
+            logger.warning(
+                "Failed to invalidate token in Redis during logout. Token may remain valid until expiration."
+            )
 
     async def get_current_user(self, token: str) -> User:
         redis_key = f"{REDIS_TOKEN_PREFIX}{token}"

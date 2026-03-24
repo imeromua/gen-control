@@ -19,7 +19,7 @@ router = APIRouter(prefix="/fuel", tags=["fuel"])
 
 @router.get("/stock", response_model=FuelStockResponse)
 async def get_stock(
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin_or_operator),
     db: AsyncSession = Depends(get_db),
 ):
     service = FuelService(db)

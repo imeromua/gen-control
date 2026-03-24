@@ -1,4 +1,3 @@
-import uuid
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,12 +76,11 @@ class FuelService:
             stock_before=stock_before,
             stock_after=stock_after,
         )
-        created = await self.repo.create_delivery(delivery)
+        self.db.add(delivery)
 
         stock.current_liters = stock_after
-        await self.repo.update_stock(stock)
 
-        await self.gen_repo.add_event(
+        self.db.add(
             EventLog(
                 event_type=EventType.FUEL_DELIVERED.value,
                 generator_id=None,
@@ -96,7 +94,9 @@ class FuelService:
             )
         )
 
-        return created
+        await self.db.commit()
+        await self.db.refresh(delivery)
+        return delivery
 
     async def get_refills(self) -> list[FuelRefill]:
         return await self.repo.get_refills()
@@ -134,12 +134,11 @@ class FuelService:
             stock_before=stock_before,
             stock_after=stock_after,
         )
-        created = await self.repo.create_refill(refill)
+        self.db.add(refill)
 
         stock.current_liters = stock_after
-        await self.repo.update_stock(stock)
 
-        await self.gen_repo.add_event(
+        self.db.add(
             EventLog(
                 event_type=EventType.FUEL_REFILLED.value,
                 generator_id=data.generator_id,
@@ -154,4 +153,6 @@ class FuelService:
             )
         )
 
-        return created
+        await self.db.commit()
+        await self.db.refresh(refill)
+        return refill

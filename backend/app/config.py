@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DB_PORT: int = 5432
     DB_NAME: str = "gencontrol"
     DB_USERNAME: str = "gencontrol_user"
-    DB_PASSWORD: str = "supersecretpassword"
+    DB_PASSWORD: str
 
     # Redis
     REDIS_HOST: str = "localhost"
@@ -22,12 +22,12 @@ class Settings(BaseSettings):
     APP_BASE_URL: str = "http://localhost:8080"
 
     # JWT
-    JWT_SECRET: str = "your-very-long-secret-key-here"
+    JWT_SECRET: str
     JWT_EXPIRATION_MS: int = 86400000
 
     # First admin
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "changeme123"
+    ADMIN_PASSWORD: str
     ADMIN_FULLNAME: str = "Системний Адміністратор"
 
     # Google Sheets (future)
@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # App rules
     DEFAULT_WORK_TIME_START: str = "07:00"
     DEFAULT_WORK_TIME_END: str = "22:00"
+
+    # CORS
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
 
     @property
     def database_url(self) -> str:

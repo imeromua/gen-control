@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import time
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.common.enums import RoleName
 from app.common.utils import hash_password
@@ -107,6 +108,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="GenControl API", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router)
 app.include_router(users_router)
