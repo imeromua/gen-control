@@ -4,33 +4,30 @@
 
 - Python 3.11+
 - Docker + Docker Compose
-- [uv](https://github.com/astral-sh/uv)
+- [uv](https://docs.astral.sh/uv/) (менеджер залежностей)
 
-## 1. Середовище
+## 1. Налаштування середовища
 
 ```bash
 cp .env.example .env
-# Відредагуй .env — заповни реальні значення
+# Відредагуй .env — заповни реальні значення для DB_URL, REDIS_URL тощо
 ```
 
-## 2. Інфраструктура
+## 2. Запуск інфраструктури
 
 ```bash
 docker-compose up -d
+# PostgreSQL буде доступний на localhost:5432
+# Redis — на localhost:6379
 ```
 
-Перевірка:
-```bash
-docker-compose ps  # postgres та redis мають бути healthy
-```
-
-## 3. Залежності
+## 3. Встановлення залежностей
 
 ```bash
 uv sync
 ```
 
-## 4. Міграції
+## 4. Міграції бази даних
 
 ```bash
 uv run alembic upgrade head
@@ -40,16 +37,18 @@ uv run alembic upgrade head
 
 ```bash
 uv run uvicorn app.main:app --reload
+# API доступне на http://localhost:8000
+# Swagger UI: http://localhost:8000/docs
 ```
 
-API доступне за адресою: http://localhost:8000
+## Структура проєкту
 
-Документація: http://localhost:8000/docs
+Див. [ARCHITECTURE.md](./ARCHITECTURE.md) для детального опису модулів.
 
-## Часті проблеми
+## Системні інваріанти
 
-| Проблема | Рішення |
-|----------|---------|
-| `connection refused` на DB | Перевір що postgres запущений: `docker-compose up -d postgres` |
-| `alembic: command not found` | Використовуй `uv run alembic` |
-| Порт 8000 зайнятий | `--port 8001` або зупини інший процес |
+Перед реалізацією будь-якої бізнес-логіки обов'язково прочитай [INVARIANTS.md](./INVARIANTS.md).
+
+## Схема подій
+
+Опис усіх типів event_log та структури meta: [EVENT_SCHEMA.md](./EVENT_SCHEMA.md).

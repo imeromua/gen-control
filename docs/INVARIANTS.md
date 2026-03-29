@@ -9,26 +9,27 @@
 | 5 | Кожна операція → event_log в тій же транзакції | `EventLogRepository` |
 | 6 | motohours formula: `Decimal((stopped_at - started_at).total_seconds() / 3600).quantize("0.01")` | `ShiftService` |
 
-## Порядок операцій у сервісах (канонічний шаблон)
+## Пояснення
 
-```python
-async def start_shift(generator_id: UUID, operator_id: UUID, db: AsyncSession) -> Shift:
-    # 1. Перевірки поза транзакцією (read-only)
-    await rules.check_no_active_shift_exists(db)
-    await rules.check_min_pause_between_starts(generator_id, db)
+### Інваріант 1 — ONE active shift globally
+Один генератор може фізично працювати в один момент часу.  
+Перевірка відбувається ДО початку транзакції (read-only).  
+Назва методу `check_only_one_generator_active()` вводить в оману — правильна семантика: немає жодної активної зміни глобально.
 
-    # 2. Мутації — все в одній транзакції
-    async with db.begin():
-        shift = await shift_repo.create(generator_id, operator_id, db)
-        await event_log.write(
-            event_type=EventType.SHIFT_STARTED,
-            meta={"shift_id": str(shift.id), "generator_id": str(generator_id)},
-            db=db
-        )
-    return shift
+### Інваріант 2 — motohours тільки при stop
+Години НЕ рахуються динамічно. Вони записуються один раз у момент `stop_shift()`.  
+Якщо сервер впав і зміна не закрита — потрібна ручна або автоматична recovery-процедура.
+
+### Інваріант 3 — fuel_stock.current_liters як джерело істини
+`fuel_stock.current_liters` оновлюється атомарно при кожній операції з пальним.  
+`fuel_deliveries` і `fuel_refills` — аудит-лог, НЕ основа для розрахунку поточного залишку.
+
+### Інваріант 4 та 5 — транзакції та event_log
+Порядок операцій у будь-якому `*Service` методі:
 ```
-
-## Recovery при падінні сервера
-
-При старті застосунку необхідно перевірити наявність `ACTIVE` змін старше `STALE_SHIFT_HOURS` (default: 12 год).
-Алерт адміну або автоматичне закриття — визначається конфігурацією `AUTO_CLOSE_STALE_SHIFTS`.
+1. Перевірки поза транзакцією (read-only)
+2. async with db.begin():
+   a. мутація даних
+   b. event_log.write() — в тій же транзакції
+3. Повернути результат
+```

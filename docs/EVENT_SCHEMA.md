@@ -2,32 +2,66 @@
 
 ## EventType enum
 
-Всі типи визначені в `app/core/event_types.py` (StrEnum).
+Всі типи подій визначені в `app/core/event_types.py` (StrEnum).  
+ЗАБОРОНЕНО використовувати рядкові літерали — тільки `EventType.SHIFT_STARTED` тощо.
 
-| Значення | Коли | Обов'язкові поля `meta` |
-|----------|------|------------------------|
+| Значення | Коли викликається | Обов'язкові поля `meta` |
+|----------|-------------------|-------------------------|
 | `SHIFT_STARTED` | `ShiftService.start_shift()` | `shift_id`, `generator_id`, `operator_id` |
 | `SHIFT_STOPPED` | `ShiftService.stop_shift()` | `shift_id`, `generator_id`, `motohours` |
 | `FUEL_REFILL` | `FuelService.add_refill()` | `shift_id`, `generator_id`, `liters` |
 | `FUEL_DELIVERY` | `FuelService.add_delivery()` | `delivery_id`, `liters`, `supplier` |
 
-## Структура запису
+## Структура запису event_log
 
+```python
+await event_log.write(
+    event_type=EventType.SHIFT_STARTED,
+    meta={
+        "shift_id": str(shift.id),
+        "generator_id": str(generator_id),
+        "operator_id": str(operator_id),
+    },
+    db=db  # та сама сесія, та сама транзакція
+)
+```
+
+## Приклади meta
+
+### SHIFT_STARTED
 ```json
 {
-  "event_type": "SHIFT_STARTED",
-  "created_at": "2026-03-29T20:00:00Z",
-  "meta": {
-    "shift_id": "uuid",
-    "generator_id": "uuid",
-    "operator_id": "uuid"
-  }
+  "shift_id": "550e8400-e29b-41d4-a716-446655440000",
+  "generator_id": "550e8400-e29b-41d4-a716-446655440001",
+  "operator_id": "550e8400-e29b-41d4-a716-446655440002"
 }
 ```
 
-## Правила
+### SHIFT_STOPPED
+```json
+{
+  "shift_id": "550e8400-e29b-41d4-a716-446655440000",
+  "generator_id": "550e8400-e29b-41d4-a716-446655440001",
+  "motohours": "4.25"
+}
+```
 
-- `event_log` завжди пишеться **в тій самій транзакції** що й основна операція
-- Якщо `event_log` падає — вся транзакція відкочується
-- `meta` — JSON, всі UUID передаються як рядки (`str(uuid)`)
-- `liters` і `motohours` передаються як рядки Decimal (`"12.50"`), не float
+### FUEL_REFILL
+```json
+{
+  "shift_id": "550e8400-e29b-41d4-a716-446655440000",
+  "generator_id": "550e8400-e29b-41d4-a716-446655440001",
+  "liters": "50.00"
+}
+```
+
+### FUEL_DELIVERY
+```json
+{
+  "delivery_id": "550e8400-e29b-41d4-a716-446655440003",
+  "liters": "200.00",
+  "supplier": "ТОВ Паливо"
+}
+```
+
+> **Важливо:** `liters` та `motohours` передаються як рядки (str(Decimal)), щоб уникнути проблем із серіалізацією float у JSON.
