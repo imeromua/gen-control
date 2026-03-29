@@ -9,26 +9,29 @@
 | 5 | Кожна операція → event_log в тій же транзакції | `EventLogRepository` |
 | 6 | motohours formula: `Decimal((stopped_at - started_at).total_seconds() / 3600).quantize("0.01")` | `ShiftService` |
 
-## Порядок операцій (канонічний шаблон)
+## Пояснення критичних інваріантів
 
+### Інваріант #1 — ONE active shift globally
+Активна зміна може бути **тільки одна** в будь-який момент часу — незалежно від генератора чи оператора.
+Фізичне обґрунтування: один майданчик, один генератор працює одночасно.
+
+> ⚠️ `check_only_one_generator_active()` — застаріла назва. Використовувати `check_no_active_shift_exists()`.
+
+### Інваріант #3 — fuel_stock.current_liters
+`fuel_stock.current_liters` — не кеш, не розрахункове поле. Це **єдине джерело істини**.
+`fuel_deliveries` та `fuel_refills` — аудит-лог, не основа розрахунку.
+
+### Інваріант #4 + #5 — транзакція + event_log
+Канонічний порядок операцій у кожному service-методі:
 ```python
-async def start_shift(generator_id: UUID, operator_id: UUID, db: AsyncSession) -> Shift:
-    # 1. Перевірки поза транзакцією (read-only)
-    await rules.check_no_active_shift_exists(db)
-    await rules.check_min_pause_between_starts(generator_id, db)
+# 1. Read-only перевірки (поза транзакцією)
+await rules.check_...()
 
-    # 2. Мутації — все в одній транзакції
-    async with db.begin():
-        shift = await shift_repo.create(generator_id, operator_id, db)
-        await event_log.write(
-            event_type=EventType.SHIFT_STARTED,
-            meta={"shift_id": str(shift.id), "generator_id": str(generator_id)},
-            db=db
-        )
-    return shift
+# 2. Мутації + event_log — ОДНА транзакція
+async with db.begin():
+    entity = await repo.create(...)
+    await event_log.write(event_type=EventType.X, meta={...}, db=db)
+
+# 3. Повернути результат
+return entity
 ```
-
-## Recovery при падінні сервера
-
-При старті застосунку — перевіряти ACTIVE зміни старше `STALE_SHIFT_HOURS` (default: 12).
-Алерт адміну або автозакриття — залежно від конфігурації `AUTO_CLOSE_STALE_SHIFTS`.

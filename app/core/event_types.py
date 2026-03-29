@@ -4,8 +4,11 @@ from enum import StrEnum
 class EventType(StrEnum):
     """Canonical event types for event_log.
 
-    Always use this enum — never hardcode string literals.
-    Adding a new event type here is the ONLY place it needs to be defined.
+    Usage:
+        await event_log.write(event_type=EventType.SHIFT_STARTED, meta={...}, db=db)
+
+    Never use raw string literals — always reference this enum.
+    See docs/EVENT_SCHEMA.md for required meta fields per event type.
     """
 
     SHIFT_STARTED = "SHIFT_STARTED"

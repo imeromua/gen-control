@@ -1,5 +1,10 @@
 # Getting Started
 
+## Вимоги
+- Python 3.11+
+- Docker + Docker Compose
+- [uv](https://github.com/astral-sh/uv)
+
 ## 1. Середовище
 
 ```bash
@@ -7,38 +12,40 @@ cp .env.example .env
 # Відредагуй .env — заповни реальні значення
 ```
 
-## 2. Інфраструктура (PostgreSQL + Redis)
+## 2. Інфраструктура
 
 ```bash
 docker-compose up -d
+# Піднімає PostgreSQL + Redis
 ```
 
-## 3. Міграції
+## 3. Залежності
+
+```bash
+uv sync
+```
+
+## 4. Міграції
 
 ```bash
 uv run alembic upgrade head
 ```
 
-## 4. Запуск сервера
+## 5. Запуск сервера
 
 ```bash
 uv run uvicorn app.main:app --reload
+# API доступне на http://localhost:8000
+# Docs: http://localhost:8000/docs
 ```
 
-Сервер доступний на http://localhost:8000
+## Перевірка
 
-Документація API: http://localhost:8000/docs
+```bash
+curl http://localhost:8000/health
+# {"status": "ok"}
+```
 
-## Вимоги
+## Структура .env
 
-- Python 3.11+
-- Docker + Docker Compose
-- [uv](https://github.com/astral-sh/uv)
-
-## Типові помилки
-
-| Помилка | Причина | Рішення |
-|---------|---------|----------|
-| `connection refused` на PostgreSQL | docker не запущений | `docker-compose up -d` |
-| `alembic.util.exc.CommandError` | міграції не застосовані | `uv run alembic upgrade head` |
-| `ModuleNotFoundError` | залежності не встановлені | `uv sync` |
+Див. `.env.example` — всі змінні описані там з коментарями.
