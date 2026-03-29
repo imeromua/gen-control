@@ -1,62 +1,44 @@
 # Getting Started
 
-## Вимоги
-
-- Python 3.11+
-- Docker & Docker Compose
-- [uv](https://github.com/astral-sh/uv)
-
-## 1. Клонування
-
-```bash
-git clone https://github.com/imeromua/gen-control.git
-cd gen-control
-```
-
-## 2. Змінні середовища
+## 1. Середовище
 
 ```bash
 cp .env.example .env
-# Відкрий .env і заповни реальні значення
+# Відредагуй .env — заповни реальні значення
 ```
 
-## 3. Інфраструктура (PostgreSQL + Redis)
+## 2. Інфраструктура (PostgreSQL + Redis)
 
 ```bash
 docker-compose up -d
 ```
 
-## 4. Залежності Python
-
-```bash
-uv sync
-```
-
-## 5. Міграції БД
+## 3. Міграції
 
 ```bash
 uv run alembic upgrade head
 ```
 
-## 6. Запуск сервера
+## 4. Запуск сервера
 
 ```bash
 uv run uvicorn app.main:app --reload
 ```
 
-API доступне на: http://localhost:8000
+Сервер доступний на http://localhost:8000
 
-Документація: http://localhost:8000/docs
+Документація API: http://localhost:8000/docs
 
-## Корисні команди
+## Вимоги
 
-```bash
-# Запустити тести
-uv run pytest
+- Python 3.11+
+- Docker + Docker Compose
+- [uv](https://github.com/astral-sh/uv)
 
-# Перевірити типи
-uv run mypy app/
+## Типові помилки
 
-# Лінтер
-uv run ruff check app/
-```
+| Помилка | Причина | Рішення |
+|---------|---------|----------|
+| `connection refused` на PostgreSQL | docker не запущений | `docker-compose up -d` |
+| `alembic.util.exc.CommandError` | міграції не застосовані | `uv run alembic upgrade head` |
+| `ModuleNotFoundError` | залежності не встановлені | `uv sync` |
