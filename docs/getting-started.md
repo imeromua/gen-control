@@ -10,13 +10,14 @@
 
 ```bash
 cp .env.example .env
-# Відредагуй .env — заповни реальні значення (DB_URL, REDIS_URL, SECRET_KEY)
+# Відредагуй .env — заповни реальні значення для DB_URL, REDIS_URL, SECRET_KEY
 ```
 
-## 2. Інфраструктура (PostgreSQL + Redis)
+## 2. Інфраструктура
 
 ```bash
 docker-compose up -d
+# Підіймає PostgreSQL та Redis
 ```
 
 ## 3. Залежності
@@ -37,13 +38,14 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-Сервер запуститься на http://localhost:8000
+Сервер доступний на: http://localhost:8000
 
 Документація API: http://localhost:8000/docs
 
-## Швидка перевірка
+## Типові проблеми
 
-```bash
-curl http://localhost:8000/health
-# {"status": "ok"}
-```
+| Проблема | Рішення |
+|----------|---------|
+| `connection refused` на PostgreSQL | Переконайся що `docker-compose up -d` виконано |
+| `ModuleNotFoundError` | Виконай `uv sync` |
+| Міграції не застосовані | Виконай `uv run alembic upgrade head` |
