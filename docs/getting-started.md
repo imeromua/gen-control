@@ -1,6 +1,7 @@
 # Getting Started
 
 ## Вимоги
+
 - Python 3.11+
 - Docker + Docker Compose
 - [uv](https://github.com/astral-sh/uv)
@@ -9,14 +10,13 @@
 
 ```bash
 cp .env.example .env
-# Відредагуй .env — заповни реальні значення
+# Відредагуй .env — заповни реальні значення (DB_URL, REDIS_URL, SECRET_KEY)
 ```
 
-## 2. Інфраструктура
+## 2. Інфраструктура (PostgreSQL + Redis)
 
 ```bash
 docker-compose up -d
-# Піднімає PostgreSQL + Redis
 ```
 
 ## 3. Залежності
@@ -35,17 +35,15 @@ uv run alembic upgrade head
 
 ```bash
 uv run uvicorn app.main:app --reload
-# API доступне на http://localhost:8000
-# Docs: http://localhost:8000/docs
 ```
 
-## Перевірка
+Сервер запуститься на http://localhost:8000
+
+Документація API: http://localhost:8000/docs
+
+## Швидка перевірка
 
 ```bash
 curl http://localhost:8000/health
 # {"status": "ok"}
 ```
-
-## Структура .env
-
-Див. `.env.example` — всі змінні описані там з коментарями.
