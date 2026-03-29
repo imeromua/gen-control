@@ -14,8 +14,8 @@
 ```python
 async def start_shift(generator_id: UUID, operator_id: UUID, db: AsyncSession) -> Shift:
     # 1. Перевірки поза транзакцією (read-only)
-    await rules.check_min_pause_between_starts(generator_id, db)
     await rules.check_no_active_shift_exists(db)
+    await rules.check_min_pause_between_starts(generator_id, db)
 
     # 2. Мутації — все в одній транзакції
     async with db.begin():
@@ -28,8 +28,7 @@ async def start_shift(generator_id: UUID, operator_id: UUID, db: AsyncSession) -
     return shift
 ```
 
-## Notes
+## Примітки
 
-- `check_only_one_generator_active()` → renamed to `check_no_active_shift_exists()` (globally, not per-generator)
-- `fuel_stock.current_liters` is NOT a cache — it is the authoritative value, updated atomically
-- On server crash: background task at startup detects ACTIVE shifts older than N hours and alerts admin
+- `check_only_one_generator_active()` перейменовано на `check_no_active_shift_exists()` — інваріант глобальний, не per-generator
+- При старті застосунку: ACTIVE-зміни старші N годин → алерт адміну або автозакриття (background task)

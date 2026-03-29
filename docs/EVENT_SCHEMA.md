@@ -2,50 +2,43 @@
 
 ## EventType enum
 
-Всі типи подій визначені в `app/core/event_types.py` як `StrEnum`.
-НІКОЛИ не використовуй рядкові літерали напряму — тільки `EventType.SHIFT_STARTED` тощо.
+Використовувати тільки значення з `app/core/event_types.py` (StrEnum). Рядкові літерали заборонені.
 
-| Значення | Коли викликається | Обов'язкові поля `meta` |
-|----------|-------------------|-------------------------|
+| Значення | Коли | Обов'язкові поля `meta` |
+|----------|------|--------------------------|
 | `SHIFT_STARTED` | `ShiftService.start_shift()` | `shift_id`, `generator_id`, `operator_id` |
 | `SHIFT_STOPPED` | `ShiftService.stop_shift()` | `shift_id`, `generator_id`, `motohours` |
 | `FUEL_REFILL` | `FuelService.add_refill()` | `shift_id`, `generator_id`, `liters` |
 | `FUEL_DELIVERY` | `FuelService.add_delivery()` | `delivery_id`, `liters`, `supplier` |
 
-## meta structure examples
+## meta structure
 
 ```json
-// SHIFT_STARTED
 {
-  "shift_id": "550e8400-e29b-41d4-a716-446655440000",
-  "generator_id": "550e8400-e29b-41d4-a716-446655440001",
-  "operator_id": "550e8400-e29b-41d4-a716-446655440002"
-}
-
-// SHIFT_STOPPED
-{
-  "shift_id": "550e8400-e29b-41d4-a716-446655440000",
-  "generator_id": "550e8400-e29b-41d4-a716-446655440001",
-  "motohours": "4.75"
-}
-
-// FUEL_REFILL
-{
-  "shift_id": "550e8400-e29b-41d4-a716-446655440000",
-  "generator_id": "550e8400-e29b-41d4-a716-446655440001",
-  "liters": "120.50"
-}
-
-// FUEL_DELIVERY
-{
-  "delivery_id": "550e8400-e29b-41d4-a716-446655440003",
-  "liters": "500.00",
-  "supplier": "Постачальник ТОВ"
+  "shift_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "generator_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "operator_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
-## Rules
+```json
+{
+  "shift_id": "uuid",
+  "generator_id": "uuid",
+  "motohours": "12.50"
+}
+```
 
-- `liters` та `motohours` — завжди рядок (серіалізований `Decimal`), НЕ float
-- UUID — завжди рядок (`str(uuid)`)
-- `meta` — обов'язковий для кожного запису, порожній dict заборонений
+```json
+{
+  "shift_id": "uuid",
+  "generator_id": "uuid",
+  "liters": "85.00"
+}
+```
+
+## Правила
+
+- `meta` — завжди `dict[str, str]`, Decimal/UUID серіалізуються як рядки
+- event_log пишеться **в тій самій транзакції** що і основна мутація
+- якщо event_log падає — вся транзакція відкочується (консистентність гарантована)

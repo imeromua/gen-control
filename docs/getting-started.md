@@ -1,6 +1,6 @@
 # Getting Started
 
-## Вимоги
+## Передумови
 
 - Python 3.11+
 - Docker + Docker Compose
@@ -10,14 +10,13 @@
 
 ```bash
 cp .env.example .env
-# Відредагуй .env — заповни реальні значення для DB_URL, REDIS_URL, SECRET_KEY
+# Відредагуй .env — заповни реальні значення
 ```
 
-## 2. Інфраструктура
+## 2. Інфраструктура (PostgreSQL + Redis)
 
 ```bash
 docker-compose up -d
-# Підіймає PostgreSQL та Redis
 ```
 
 ## 3. Залежності
@@ -38,14 +37,14 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-Сервер доступний на: http://localhost:8000
+API доступне на: http://localhost:8000
 
-Документація API: http://localhost:8000/docs
+Docs: http://localhost:8000/docs
 
-## Типові проблеми
+## Структура проєкту
 
-| Проблема | Рішення |
-|----------|---------|
-| `connection refused` на PostgreSQL | Переконайся що `docker-compose up -d` виконано |
-| `ModuleNotFoundError` | Виконай `uv sync` |
-| Міграції не застосовані | Виконай `uv run alembic upgrade head` |
+Див. [ARCHITECTURE.md](./ARCHITECTURE.md) — повна архітектура.
+
+Дів. [INVARIANTS.md](./INVARIANTS.md) — системні інваріанти (читати обов'язково перед реалізацією бізнес-логіки).
+
+Дів. [EVENT_SCHEMA.md](./EVENT_SCHEMA.md) — схема event_log.
