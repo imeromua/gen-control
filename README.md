@@ -17,6 +17,7 @@
 |---|---|
 | [AGENTS.md](./AGENTS.md) | Загальний контекст, структура репо, що НЕ робити |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Схема системи, залежності модулів, таблиці БД, ролі |
+| [FLOW.md](./FLOW.md) | Покрокові флоу ключових операцій з перевірками та сайд-ефектами |
 | [docs/business-rules.md](./docs/business-rules.md) | Бізнес-правила: заборони, перевірки, автоматичні дії |
 | [docs/conventions.md](./docs/conventions.md) | Правила коду: Decimal, UUID, транзакції, стиль |
 | [docs/api-map.md](./docs/api-map.md) | Всі ендпоінти з методами та рівнями доступу |
@@ -96,6 +97,7 @@ gen-control/
 ├── docs/                         ← вся документація
 ├── AGENTS.md
 ├── ARCHITECTURE.md
+├── FLOW.md                       ← покрокові флоу операцій
 ├── docker-compose.yml
 └── README.md
 ```
@@ -147,7 +149,7 @@ npm run dev
 
 ## Змінні оточення
 
-Детально: [`backend/.env.example`](./backend/.env.example)
+Детанльно: [`backend/.env.example`](./backend/.env.example)
 
 | Змінна | Опис |
 |---|---|
