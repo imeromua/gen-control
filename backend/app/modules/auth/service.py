@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timezone
 import logging
 
@@ -17,6 +18,11 @@ ALGORITHM = "HS256"
 REDIS_TOKEN_PREFIX = "token:"
 
 logger = logging.getLogger(__name__)
+
+
+def _token_hash(token: str) -> str:
+    """SHA-256 хеш токена — використовується як Redis-ключ, щоб не зберігати повний JWT."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def _create_access_token(user: User) -> str:
@@ -46,22 +52,23 @@ class AuthService:
             raise UnauthorizedException(detail="User account is disabled")
 
         token = _create_access_token(user)
-        redis_key = f"{REDIS_TOKEN_PREFIX}{token}"
+        redis_key = f"{REDIS_TOKEN_PREFIX}{_token_hash(token)}"
         await self.redis.setex(redis_key, settings.jwt_expiration_seconds, str(user.id))
 
         return TokenResponse(access_token=token)
 
     async def logout(self, token: str) -> None:
         try:
-            redis_key = f"{REDIS_TOKEN_PREFIX}{token}"
+            redis_key = f"{REDIS_TOKEN_PREFIX}{_token_hash(token)}"
             await self.redis.delete(redis_key)
-        except RedisError:
-            logger.warning(
-                "Failed to invalidate token in Redis during logout. Token may remain valid until expiration."
-            )
+        except RedisError as exc:
+            logger.error("Failed to invalidate token in Redis during logout: %s", exc)
+            raise UnauthorizedException(
+                detail="Logout failed: session storage unavailable. Please try again later."
+            ) from exc
 
     async def get_current_user(self, token: str) -> User:
-        redis_key = f"{REDIS_TOKEN_PREFIX}{token}"
+        redis_key = f"{REDIS_TOKEN_PREFIX}{_token_hash(token)}"
         stored = await self.redis.get(redis_key)
         if not stored:
             raise UnauthorizedException(detail="Token is invalid or expired")

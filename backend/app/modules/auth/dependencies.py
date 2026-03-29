@@ -23,17 +23,13 @@ async def get_current_user(
     return await service.get_current_user(token)
 
 
-async def require_active(user: User = Depends(get_current_user)) -> User:
-    return user
-
-
 async def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role.name != RoleName.ADMIN:
+    if user.role.name != RoleName.ADMIN.value:
         raise ForbiddenException(detail="Admin role required")
     return user
 
 
 async def require_admin_or_operator(user: User = Depends(get_current_user)) -> User:
-    if user.role.name not in (RoleName.ADMIN, RoleName.OPERATOR):
+    if user.role.name not in (RoleName.ADMIN.value, RoleName.OPERATOR.value):
         raise ForbiddenException(detail="Admin or Operator role required")
     return user
