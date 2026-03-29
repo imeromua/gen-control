@@ -22,7 +22,7 @@
 | [docs/api-map.md](./docs/api-map.md) | Всі ендпоінти з методами та рівнями доступу |
 | [docs/db-schema.md](./docs/db-schema.md) | SQL-схема всіх 14 таблиць |
 | [docs/payload-examples.md](./docs/payload-examples.md) | JSON приклади запитів та відповідей |
-| [docs/frontend-error-handling.md](./docs/frontend-error-handling.md) | Глобальна обробка помилок на фронтенді |
+| [docs/frontend-error-handling.md](./docs/frontend-error-handling.md) | Глобальна обробка помилок API, перехоплення 401, Offline-режим |
 | [docs/deployment.md](./docs/deployment.md) | Запуск локально (Linux) та через Docker |
 | [.github/copilot-instructions.md](./.github/copilot-instructions.md) | Автоматично читається GitHub Copilot |
 
