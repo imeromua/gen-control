@@ -6,26 +6,32 @@
 - Docker + Docker Compose
 - [uv](https://github.com/astral-sh/uv)
 
-## 1. Середовище
+## 1. Клонування та середовище
 
 ```bash
+git clone https://github.com/imeromua/gen-control.git
+cd gen-control
+
+# Скопіюй та відредагуй змінні оточення
 cp .env.example .env
-# Відредагуй .env — заповни реальні значення
+# Відкрий .env і заповни реальні значення
 ```
 
-## 2. Інфраструктура (PostgreSQL + Redis)
+## 2. Запуск інфраструктури
 
 ```bash
 docker-compose up -d
+# PostgreSQL буде на localhost:5432
+# Redis буде на localhost:6379
 ```
 
-## 3. Залежності
+## 3. Встановлення залежностей
 
 ```bash
 uv sync
 ```
 
-## 4. Міграції
+## 4. Міграції БД
 
 ```bash
 uv run alembic upgrade head
@@ -37,14 +43,25 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-API доступне на: http://localhost:8000
+Сервер буде доступний на: http://localhost:8000  
+Документація API: http://localhost:8000/docs
 
-Docs: http://localhost:8000/docs
+## Перевірка
 
-## Структура проєкту
+```bash
+curl http://localhost:8000/health
+# {"status": "ok"}
+```
 
-Див. [ARCHITECTURE.md](./ARCHITECTURE.md) — повна архітектура.
+## Корисні команди
 
-Дів. [INVARIANTS.md](./INVARIANTS.md) — системні інваріанти (читати обов'язково перед реалізацією бізнес-логіки).
+```bash
+# Запуск тестів
+uv run pytest
 
-Дів. [EVENT_SCHEMA.md](./EVENT_SCHEMA.md) — схема event_log.
+# Лінтер
+uv run ruff check .
+
+# Форматування
+uv run ruff format .
+```

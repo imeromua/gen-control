@@ -2,43 +2,57 @@
 
 ## EventType enum
 
-Використовувати тільки значення з `app/core/event_types.py` (StrEnum). Рядкові літерали заборонені.
+Всі типи подій визначені в `app/core/event_types.py` як `StrEnum`.
+ЗАБОРОНЕНО використовувати рядкові літерали напряму — тільки через `EventType.*`.
 
-| Значення | Коли | Обов'язкові поля `meta` |
-|----------|------|--------------------------|
-| `SHIFT_STARTED` | `ShiftService.start_shift()` | `shift_id`, `generator_id`, `operator_id` |
-| `SHIFT_STOPPED` | `ShiftService.stop_shift()` | `shift_id`, `generator_id`, `motohours` |
-| `FUEL_REFILL` | `FuelService.add_refill()` | `shift_id`, `generator_id`, `liters` |
-| `FUEL_DELIVERY` | `FuelService.add_delivery()` | `delivery_id`, `liters`, `supplier` |
+| Значення | Коли створюється | Хто створює |
+|----------|-----------------|-------------|
+| `SHIFT_STARTED` | при виклику `start_shift()` | `ShiftService` |
+| `SHIFT_STOPPED` | при виклику `stop_shift()` | `ShiftService` |
+| `FUEL_REFILL` | при виклику `add_refill()` | `FuelService` |
+| `FUEL_DELIVERY` | при виклику `add_delivery()` | `FuelService` |
 
-## meta structure
+## Обов'язкові поля meta
 
-```json
-{
-  "shift_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "generator_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "operator_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-}
-```
-
+### SHIFT_STARTED
 ```json
 {
   "shift_id": "uuid",
   "generator_id": "uuid",
-  "motohours": "12.50"
+  "operator_id": "uuid"
 }
 ```
 
+### SHIFT_STOPPED
 ```json
 {
   "shift_id": "uuid",
   "generator_id": "uuid",
-  "liters": "85.00"
+  "motohours": "2.75"
+}
+```
+
+### FUEL_REFILL
+```json
+{
+  "shift_id": "uuid",
+  "generator_id": "uuid",
+  "liters": "50.00"
+}
+```
+
+### FUEL_DELIVERY
+```json
+{
+  "delivery_id": "uuid",
+  "liters": "200.00",
+  "supplier": "string"
 }
 ```
 
 ## Правила
 
-- `meta` — завжди `dict[str, str]`, Decimal/UUID серіалізуються як рядки
-- event_log пишеться **в тій самій транзакції** що і основна мутація
-- якщо event_log падає — вся транзакція відкочується (консистентність гарантована)
+- `meta` зберігається як `JSONB`
+- Числові значення (liters, motohours) — у форматі рядка з 2 знаками після коми
+- UUID — у форматі рядка без дужок
+- event_log записується в тій САМІЙ транзакції що і основна операція (див. INVARIANTS.md)

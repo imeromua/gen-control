@@ -9,26 +9,36 @@
 | 5 | Кожна операція → event_log в тій же транзакції | `EventLogRepository` |
 | 6 | motohours formula: `Decimal((stopped_at - started_at).total_seconds() / 3600).quantize("0.01")` | `ShiftService` |
 
-## Canonical transaction pattern
+## Пояснення
 
+### Інваріант 1 — ONE active shift globally
+Активна зміна завжди ОДНА — не per-generator, не per-user.  
+Обґрунтування: один фізичний генератор може працювати в один момент часу.  
+Перевіряється перед будь-яким `start_shift()`.
+
+### Інваріант 2 — motohours тільки при stop
+Мотогодини не рахуються "в реальному часі". Значення `motohours` записується
+одноразово при виклику `stop_shift()` і більше не змінюється.
+
+### Інваріант 3 — fuel_stock є джерелом правди
+`fuel_stock.current_liters` — це не кеш і не агрегат.  
+Це єдине джерело правди про залишок палива.  
+`fuel_deliveries` і `fuel_refills` — аудит-лог, не основа розрахунку.
+
+### Інваріант 4 — атомарність
+Кожна операція яка змінює стан системи ОБОВ'ЯЗКОВО виконується в межах
+однієї транзакції БД. Часткові зміни неприпустимі.
+
+### Інваріант 5 — event_log в тій самій транзакції
+Запис у `event_log` є частиною бізнес-операції, а не наступним кроком після.
+Якщо event_log падає — вся транзакція відкочується.
+
+### Інваріант 6 — формула motohours
 ```python
-async def start_shift(generator_id: UUID, operator_id: UUID, db: AsyncSession) -> Shift:
-    # 1. Перевірки поза транзакцією (read-only)
-    await rules.check_no_active_shift_exists(db)
-    await rules.check_min_pause_between_starts(generator_id, db)
+from decimal import Decimal
 
-    # 2. Мутації — все в одній транзакції
-    async with db.begin():
-        shift = await shift_repo.create(generator_id, operator_id, db)
-        await event_log.write(
-            event_type=EventType.SHIFT_STARTED,
-            meta={"shift_id": str(shift.id), "generator_id": str(generator_id)},
-            db=db
-        )
-    return shift
+motohours = Decimal(
+    str((stopped_at - started_at).total_seconds() / 3600)
+).quantize(Decimal("0.01"))
 ```
-
-## Примітки
-
-- `check_only_one_generator_active()` перейменовано на `check_no_active_shift_exists()` — інваріант глобальний, не per-generator
-- При старті застосунку: ACTIVE-зміни старші N годин → алерт адміну або автозакриття (background task)
+Використовувати `Decimal`, НЕ `float`. Округлення — до 2 знаків.
