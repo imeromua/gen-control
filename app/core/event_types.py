@@ -2,13 +2,10 @@ from enum import StrEnum
 
 
 class EventType(StrEnum):
-    """
-    Канонічний список типів подій для event_log.
+    """Canonical event types for event_log.
 
-    ЗАБОРОНЕНО використовувати рядкові літерали напряму.
-    Завжди використовуй: EventType.SHIFT_STARTED тощо.
-
-    Всі значення та структура meta описані в docs/EVENT_SCHEMA.md
+    IMPORTANT: Always use this enum — never raw string literals.
+    All event_log entries must use one of these values.
     """
 
     SHIFT_STARTED = "SHIFT_STARTED"

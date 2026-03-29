@@ -3,52 +3,60 @@
 ## Вимоги
 
 - Python 3.11+
-- Docker + Docker Compose
-- [uv](https://docs.astral.sh/uv/) (менеджер залежностей)
+- Docker & Docker Compose
+- [uv](https://github.com/astral-sh/uv)
 
-## 1. Налаштування середовища
+## 1. Клонування
+
+```bash
+git clone https://github.com/imeromua/gen-control.git
+cd gen-control
+```
+
+## 2. Змінні середовища
 
 ```bash
 cp .env.example .env
-# Відредагуй .env — заповни реальні значення для DB_URL, REDIS_URL тощо
+# Відкрий .env і заповни реальні значення
 ```
 
-## 2. Запуск інфраструктури
+## 3. Інфраструктура (PostgreSQL + Redis)
 
 ```bash
 docker-compose up -d
-# PostgreSQL буде доступний на localhost:5432
-# Redis — на localhost:6379
 ```
 
-## 3. Встановлення залежностей
+## 4. Залежності Python
 
 ```bash
 uv sync
 ```
 
-## 4. Міграції бази даних
+## 5. Міграції БД
 
 ```bash
 uv run alembic upgrade head
 ```
 
-## 5. Запуск сервера
+## 6. Запуск сервера
 
 ```bash
 uv run uvicorn app.main:app --reload
-# API доступне на http://localhost:8000
-# Swagger UI: http://localhost:8000/docs
 ```
 
-## Структура проєкту
+API доступне на: http://localhost:8000
 
-Див. [ARCHITECTURE.md](./ARCHITECTURE.md) для детального опису модулів.
+Документація: http://localhost:8000/docs
 
-## Системні інваріанти
+## Корисні команди
 
-Перед реалізацією будь-якої бізнес-логіки обов'язково прочитай [INVARIANTS.md](./INVARIANTS.md).
+```bash
+# Запустити тести
+uv run pytest
 
-## Схема подій
+# Перевірити типи
+uv run mypy app/
 
-Опис усіх типів event_log та структури meta: [EVENT_SCHEMA.md](./EVENT_SCHEMA.md).
+# Лінтер
+uv run ruff check app/
+```
