@@ -10,7 +10,6 @@
 | FUEL_DELIVERY | add_delivery() | delivery_id, liters, supplier |
 
 ## meta structure example
-
 ```json
 {
   "shift_id": "uuid",
