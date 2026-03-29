@@ -2,57 +2,19 @@
 
 ## EventType enum
 
-Всі типи подій визначені в `app/core/event_types.py` як `StrEnum`.
-ЗАБОРОНЕНО використовувати рядкові літерали напряму — тільки через `EventType.*`.
+| Значення | Коли | Обов'язкові поля meta |
+|----------|------|----------------------|
+| SHIFT_STARTED | start_shift() | shift_id, generator_id, operator_id |
+| SHIFT_STOPPED | stop_shift() | shift_id, generator_id, motohours |
+| FUEL_REFILL | add_refill() | shift_id, generator_id, liters |
+| FUEL_DELIVERY | add_delivery() | delivery_id, liters, supplier |
 
-| Значення | Коли створюється | Хто створює |
-|----------|-----------------|-------------|
-| `SHIFT_STARTED` | при виклику `start_shift()` | `ShiftService` |
-| `SHIFT_STOPPED` | при виклику `stop_shift()` | `ShiftService` |
-| `FUEL_REFILL` | при виклику `add_refill()` | `FuelService` |
-| `FUEL_DELIVERY` | при виклику `add_delivery()` | `FuelService` |
+## meta structure example
 
-## Обов'язкові поля meta
-
-### SHIFT_STARTED
 ```json
 {
   "shift_id": "uuid",
   "generator_id": "uuid",
-  "operator_id": "uuid"
+  "liters": "12.50"
 }
 ```
-
-### SHIFT_STOPPED
-```json
-{
-  "shift_id": "uuid",
-  "generator_id": "uuid",
-  "motohours": "2.75"
-}
-```
-
-### FUEL_REFILL
-```json
-{
-  "shift_id": "uuid",
-  "generator_id": "uuid",
-  "liters": "50.00"
-}
-```
-
-### FUEL_DELIVERY
-```json
-{
-  "delivery_id": "uuid",
-  "liters": "200.00",
-  "supplier": "string"
-}
-```
-
-## Правила
-
-- `meta` зберігається як `JSONB`
-- Числові значення (liters, motohours) — у форматі рядка з 2 знаками після коми
-- UUID — у форматі рядка без дужок
-- event_log записується в тій САМІЙ транзакції що і основна операція (див. INVARIANTS.md)
