@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/useToast';
 import { AlertCircle, Settings, CheckCircle2, Lock } from 'lucide-react';
+import { CreateGeneratorDialog } from '@/components/generators/CreateGeneratorDialog';
 
 interface GeneratorData {
   id: number;
@@ -33,6 +34,7 @@ export default function GeneratorsPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [editData, setEditData] = useState<{ fuel_consumption_l_per_h?: number; maintenance_interval_h?: number }>({});
   const [editLoading, setEditLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   if (!isAdmin) {
     return (
@@ -81,7 +83,19 @@ export default function GeneratorsPage() {
   return (
     <AppLayout>
       <div className="p-4 max-w-4xl mx-auto space-y-4">
-        <h1 className="text-xl font-bold">Генератори</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">Генератори</h1>
+          {isAdmin && (
+            <Button onClick={() => setCreateOpen(true)}>+ Додати генератор</Button>
+          )}
+        </div>
+        
+        <CreateGeneratorDialog 
+          open={createOpen} 
+          onOpenChange={setCreateOpen} 
+          onSuccess={() => mutate()} 
+        />
+
         {genArr.map((gen) => {
           const toMaintenance = gen.maintenance_interval_h - gen.motohours_since_maintenance;
           const maintPct = Math.min(Math.round((gen.motohours_since_maintenance / gen.maintenance_interval_h) * 100), 100);

@@ -53,9 +53,13 @@ export const api = {
 
   // Generators
   getGenerators: () => request<GeneratorList>('/api/generators'),
-  updateGenerator: (id: number, data: Record<string, unknown>) =>
+  createGenerator: (data: Record<string, unknown>) =>
+    request<GeneratorItem>('/api/generators', { method: 'POST', body: JSON.stringify(data) }),
+  updateGenerator: (id: string | number, data: Record<string, unknown>) =>
     request<GeneratorItem>(`/api/generators/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  recordMaintenance: (id: number, data: Record<string, unknown>) =>
+  updateGeneratorSettings: (id: string | number, data: Record<string, unknown>) =>
+    request<GeneratorItem>(`/api/generators/${id}/settings`, { method: 'PUT', body: JSON.stringify(data) }),
+  recordMaintenance: (id: string | number, data: Record<string, unknown>) =>
     request<GeneratorItem>(`/api/generators/${id}/maintenance`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Outage
