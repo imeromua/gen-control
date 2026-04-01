@@ -16,12 +16,12 @@ class FuelRepository:
 
     async def create_stock(self, stock: FuelStock) -> FuelStock:
         self.db.add(stock)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(stock)
         return stock
 
     async def update_stock(self, stock: FuelStock) -> FuelStock:
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(stock)
         return stock
 
@@ -33,7 +33,7 @@ class FuelRepository:
 
     async def create_delivery(self, delivery: FuelDelivery) -> FuelDelivery:
         self.db.add(delivery)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(delivery)
         return delivery
 
@@ -45,6 +45,6 @@ class FuelRepository:
 
     async def create_refill(self, refill: FuelRefill) -> FuelRefill:
         self.db.add(refill)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(refill)
         return refill

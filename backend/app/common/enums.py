@@ -10,6 +10,9 @@ class RoleName(str, enum.Enum):
 class GeneratorType(str, enum.Enum):
     MAIN = "MAIN"
     BACKUP = "BACKUP"
+    GASOLINE = "GASOLINE"
+    DIESEL = "DIESEL"
+    GAS = "GAS"
 
 
 class FuelType(str, enum.Enum):
@@ -32,6 +35,7 @@ class EventType(str, enum.Enum):
     FUEL_STOCK_UPDATED = "FUEL_STOCK_UPDATED"
     OIL_STOCK_UPDATED = "OIL_STOCK_UPDATED"
     ADJUSTMENT_CREATED = "ADJUSTMENT_CREATED"
+    GENERATOR_UPDATED = "GENERATOR_UPDATED"
 
 
 class AdjustmentType(str, enum.Enum):

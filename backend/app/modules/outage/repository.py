@@ -34,13 +34,13 @@ class OutageRepository:
 
     async def create(self, outage: OutageSchedule) -> OutageSchedule:
         self.db.add(outage)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(outage)
         return outage
 
     async def delete(self, outage: OutageSchedule) -> None:
         await self.db.delete(outage)
-        await self.db.commit()
+        await self.db.flush()
 
     async def get_next(self, today: date, current_hour: int) -> OutageSchedule | None:
         result = await self.db.execute(

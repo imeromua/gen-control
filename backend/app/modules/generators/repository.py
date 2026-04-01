@@ -27,12 +27,12 @@ class GeneratorRepository:
 
     async def create(self, generator: Generator) -> Generator:
         self.db.add(generator)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(generator)
         return await self.get_by_id(generator.id)
 
     async def update(self, generator: Generator) -> Generator:
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(generator)
         return await self.get_by_id(generator.id)
 
@@ -43,10 +43,9 @@ class GeneratorRepository:
         return result.scalar_one_or_none()
 
     async def update_settings(self, settings: GeneratorSettings) -> GeneratorSettings:
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(settings)
         return settings
 
     async def add_event(self, event: EventLog) -> None:
         self.db.add(event)
-        await self.db.commit()

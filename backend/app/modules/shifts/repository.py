@@ -15,7 +15,7 @@ class SystemSettingsRepository:
         return result.scalar_one_or_none()
 
     async def update(self, settings: SystemSettings) -> SystemSettings:
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(settings)
         return settings
 
@@ -71,11 +71,11 @@ class ShiftRepository:
 
     async def create(self, shift: Shift) -> Shift:
         self.db.add(shift)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(shift)
         return shift
 
     async def update(self, shift: Shift) -> Shift:
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(shift)
         return shift

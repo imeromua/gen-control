@@ -10,3 +10,4 @@ pydantic-settings
 python-dotenv
 python-multipart
 bcrypt==4.0.1
+tzdata

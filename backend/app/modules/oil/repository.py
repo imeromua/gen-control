@@ -20,11 +20,11 @@ class OilRepository:
 
     async def create(self, oil_stock: OilStock) -> OilStock:
         self.db.add(oil_stock)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(oil_stock)
         return oil_stock
 
     async def update(self, oil_stock: OilStock) -> OilStock:
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(oil_stock)
         return oil_stock

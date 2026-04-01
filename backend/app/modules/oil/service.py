@@ -29,20 +29,22 @@ class OilService:
             current_quantity=data.current_quantity,
             unit=data.unit,
         )
-        created = await self.repo.create(oil_stock)
+        
+        async with self.db.begin():
+            created = await self.repo.create(oil_stock)
 
-        await self.gen_repo.add_event(
-            EventLog(
-                event_type=EventType.OIL_STOCK_UPDATED.value,
-                generator_id=data.generator_id,
-                performed_by=current_user.id,
-                meta={
-                    "oil_type": data.oil_type,
-                    "current_quantity": float(data.current_quantity),
-                    "unit": data.unit,
-                },
+            await self.gen_repo.add_event(
+                EventLog(
+                    event_type=EventType.OIL_STOCK_UPDATED.value,
+                    generator_id=data.generator_id,
+                    performed_by=current_user.id,
+                    meta={
+                        "oil_type": data.oil_type,
+                        "current_quantity": float(data.current_quantity),
+                        "unit": data.unit,
+                    },
+                )
             )
-        )
 
         return created
 
@@ -60,19 +62,20 @@ class OilService:
         if data.unit is not None:
             oil_stock.unit = data.unit
 
-        updated = await self.repo.update(oil_stock)
+        async with self.db.begin():
+            updated = await self.repo.update(oil_stock)
 
-        await self.gen_repo.add_event(
-            EventLog(
-                event_type=EventType.OIL_STOCK_UPDATED.value,
-                generator_id=updated.generator_id,
-                performed_by=current_user.id,
-                meta={
-                    "oil_id": str(oil_id),
-                    "current_quantity": float(updated.current_quantity),
-                    "unit": updated.unit,
-                },
+            await self.gen_repo.add_event(
+                EventLog(
+                    event_type=EventType.OIL_STOCK_UPDATED.value,
+                    generator_id=updated.generator_id,
+                    performed_by=current_user.id,
+                    meta={
+                        "oil_id": str(oil_id),
+                        "current_quantity": float(updated.current_quantity),
+                        "unit": updated.unit,
+                    },
+                )
             )
-        )
 
         return updated

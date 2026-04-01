@@ -31,13 +31,13 @@ class UserRepository:
 
     async def create(self, user: User) -> User:
         self.db.add(user)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(user)
         # Reload with relationships
         return await self.get_by_id(user.id)
 
     async def update(self, user: User) -> User:
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(user)
         return await self.get_by_id(user.id)
 

@@ -57,6 +57,6 @@ class MotohoursRepository:
 
     async def create_maintenance(self, entry: MaintenanceLog) -> MaintenanceLog:
         self.db.add(entry)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(entry)
         return entry

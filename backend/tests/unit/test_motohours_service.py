@@ -1,3 +1,4 @@
+from datetime import datetime, timezone, timedelta
 import uuid
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
@@ -12,6 +13,9 @@ from app.modules.motohours.service import MotohoursService
 @pytest.fixture
 def motohours_service():
     mock_db = AsyncMock()
+    mock_db.begin = MagicMock(return_value=AsyncMock())
+    mock_db.add = MagicMock()
+    
     service = MotohoursService(mock_db)
     service.repo = AsyncMock()
     service.gen_repo = AsyncMock()
@@ -61,6 +65,9 @@ async def test_create_maintenance_calculates_next_service(motohours_service: Mot
         motohours_at_service = Decimal("90.0")
         next_service_at_hours = Decimal("290.0")
         notes = "Oil change"
+        performed_at = datetime.now(tz=timezone.utc)
+        # Mock shift to be 1 hour old
+        started_at = datetime.now(tz=timezone.utc) - timedelta(hours=1)
         # Dummy attributes for response model
         
     mock_created_instance = MockLog()
@@ -78,4 +85,7 @@ async def test_create_maintenance_calculates_next_service(motohours_service: Mot
     motohours_service.gen_repo.add_event.assert_called_once()
     event_args, _ = motohours_service.gen_repo.add_event.call_args
     assert event_args[0].event_type == "MAINTENANCE_PERFORMED"
+    
+    # Assert transaction
+    motohours_service.db.begin.assert_called_once()
 

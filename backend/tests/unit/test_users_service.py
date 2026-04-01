@@ -7,10 +7,12 @@ from app.common.exceptions import ConflictException, NotFoundException
 from app.modules.users.schemas import UserCreate, UserUpdate
 from app.modules.users.service import UserService
 
-
 @pytest.fixture
 def user_service():
     mock_db = AsyncMock()
+    mock_db.begin = MagicMock(return_value=AsyncMock())
+    mock_db.add = MagicMock()
+    
     service = UserService(mock_db)
     service.repo = AsyncMock()
     return service
@@ -49,6 +51,9 @@ async def test_create_user_success(mock_hash_password, user_service: UserService
     
     # Check that it hashed the password correctly
     mock_hash_password.assert_called_once_with("secret_password")
+    
+    # Assert transaction
+    user_service.db.begin.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -91,4 +96,7 @@ async def test_deactivate_user_success(user_service: UserService):
     
     assert mock_user.is_active is False
     user_service.repo.update.assert_called_once_with(mock_user)
+    
+    # Assert transaction
+    user_service.db.begin.assert_called_once()
 

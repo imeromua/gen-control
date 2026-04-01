@@ -56,7 +56,7 @@ async def update_generator(
     db: AsyncSession = Depends(get_db),
 ):
     service = GeneratorService(db)
-    return await service.update(generator_id, data)
+    return await service.update(generator_id, data, current_user.id)
 
 
 @router.delete("/{generator_id}", response_model=GeneratorResponse)

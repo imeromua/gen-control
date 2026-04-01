@@ -12,6 +12,9 @@ from app.modules.fuel.service import FuelService
 @pytest.fixture
 def fuel_service():
     mock_db = AsyncMock()
+    mock_db.begin = MagicMock(return_value=AsyncMock())
+    mock_db.add = MagicMock()
+    
     service = FuelService(mock_db)
     
     # Mocking repositories and rules service
@@ -55,7 +58,7 @@ async def test_create_delivery_success(fuel_service: FuelService, mock_user):
     
     # Assert DB operations
     assert fuel_service.db.add.call_count == 2  # Delivery and EventLog
-    fuel_service.db.commit.assert_called_once()
+    fuel_service.db.begin.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -113,4 +116,24 @@ async def test_create_refill_insufficient_stock(fuel_service: FuelService, mock_
         await fuel_service.create_refill(refill_data, mock_user)
         
     assert "Недостатньо палива на складі" in str(excinfo.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_update_stock_settings_commits_exactly_once(fuel_service: FuelService, mock_user):
+    """update_stock_settings() повинен викликати db.commit() рівно 1 раз (Факт BUG-4)."""
+    from app.modules.fuel.schemas import FuelStockUpdate
+
+    mock_stock = MagicMock()
+    mock_stock.max_limit_liters = Decimal("200.0")
+    mock_stock.warning_level_liters = Decimal("30.0")
+    fuel_service.repo.get_stock.return_value = mock_stock
+    fuel_service.repo.update_stock.return_value = mock_stock
+
+    update_data = FuelStockUpdate(max_limit_liters=Decimal("250.0"), warning_level_liters=Decimal("40.0"))
+    await fuel_service.update_stock_settings(update_data, mock_user)
+
+    # Після виправлення: commit рівно 1 раз (через begin)
+    fuel_service.db.begin.assert_called_once()
+    fuel_service.gen_repo.add_event.assert_called_once()
+
 

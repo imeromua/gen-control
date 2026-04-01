@@ -24,6 +24,6 @@ class AdjustmentRepository:
 
     async def create(self, adjustment: Adjustment) -> Adjustment:
         self.db.add(adjustment)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(adjustment)
         return adjustment
