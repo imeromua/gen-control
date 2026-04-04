@@ -25,6 +25,28 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
+/** Окремий fetch що повертає Blob (для завантаження файлів) */
+async function requestBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    }
+    throw new Error('Unauthorized');
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { detail?: string }).detail || `Error ${res.status}`);
+  }
+  return res.blob();
+}
+
 export const api = {
   // Auth
   login: (username: string, password: string) =>
@@ -43,7 +65,6 @@ export const api = {
   getShifts: (params?: string) => request<ShiftList>(`/api/shifts${params ? '?' + params : ''}`),
   startShift: (data: Record<string, unknown>) =>
     request<ShiftItem>('/api/shifts/start', { method: 'POST', body: JSON.stringify(data) }),
-  // POST /api/shifts/{shiftId}/stop  — shift_id обов'язковий
   stopShift: (shiftId: string) =>
     request<ShiftItem>(`/api/shifts/${shiftId}/stop`, { method: 'POST' }),
 
@@ -79,6 +100,22 @@ export const api = {
 
   // Events
   getEvents: (params?: string) => request<EventList>(`/api/events${params ? '?' + params : ''}`),
+
+  // Reports
+  downloadMonthlyReport: (opts: {
+    generatorId: string;
+    year: number;
+    month: number;
+    fuelPrice?: number;
+  }) => {
+    const p = new URLSearchParams({
+      generator_id: opts.generatorId,
+      year:  String(opts.year),
+      month: String(opts.month),
+      fuel_price: String(opts.fuelPrice ?? 50),
+    });
+    return requestBlob(`/api/reports/monthly?${p.toString()}`);
+  },
 };
 
 // Loose types for API responses

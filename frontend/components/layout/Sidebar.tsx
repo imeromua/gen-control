@@ -1,17 +1,18 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Clock, Fuel, Settings, Calendar, FileText, Zap } from 'lucide-react';
+import { LayoutDashboard, Clock, Fuel, Settings, Calendar, FileText, Zap, BarChart2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
-  { href: '/', label: 'Дашборд', icon: LayoutDashboard },
-  { href: '/shifts', label: 'Зміни', icon: Clock },
-  { href: '/fuel', label: 'Паливо', icon: Fuel },
-  { href: '/generators', label: 'Генератори', icon: Settings, adminOnly: true },
-  { href: '/outage', label: 'Відключення', icon: Calendar },
-  { href: '/events', label: 'Журнал подій', icon: FileText },
+  { href: '/',           label: 'Дашборд',       icon: LayoutDashboard },
+  { href: '/shifts',     label: 'Зміни',         icon: Clock },
+  { href: '/fuel',       label: 'Паливо',         icon: Fuel },
+  { href: '/generators', label: 'Генератори',    icon: Settings, adminOnly: true },
+  { href: '/outage',     label: 'Відключення',    icon: Calendar },
+  { href: '/events',     label: 'Журнал подій',  icon: FileText },
+  { href: '/reports',    label: 'Звіти',          icon: BarChart2 },
 ];
 
 export function Sidebar() {

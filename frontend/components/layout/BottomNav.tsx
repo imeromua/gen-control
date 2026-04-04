@@ -1,15 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Clock, Fuel, Calendar, FileText } from 'lucide-react';
+import { LayoutDashboard, Clock, Fuel, BarChart2, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/', label: 'Дашборд', icon: LayoutDashboard },
-  { href: '/shifts', label: 'Зміни', icon: Clock },
-  { href: '/fuel', label: 'Паливо', icon: Fuel },
-  { href: '/outage', label: 'Графік', icon: Calendar },
-  { href: '/events', label: 'Журнал', icon: FileText },
+  { href: '/',        label: 'Дашборд', icon: LayoutDashboard },
+  { href: '/shifts',  label: 'Зміни',   icon: Clock },
+  { href: '/fuel',    label: 'Паливо',   icon: Fuel },
+  { href: '/events',  label: 'Журнал',  icon: FileText },
+  { href: '/reports', label: 'Звіти',    icon: BarChart2 },
 ];
 
 export function BottomNav() {
