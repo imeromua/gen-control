@@ -9,13 +9,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 interface Shift {
-  id: number;
-  generator_id: number;
-  generator_name?: string;
+  id: string;               // UUID
+  shift_number: number;
+  generator_id: string;     // UUID
+  generator_name?: string;  // joined on backend (if present)
+  started_by: string | null;
+  started_by_name?: string; // joined on backend (if present)
   started_at: string;
-  ended_at?: string;
-  fuel_used_liters?: number;
-  started_by?: string;
+  stopped_at: string | null;
+  duration_minutes: string | number | null;
+  fuel_consumed_liters: string | number | null;
+  status: string;           // 'active' | 'stopped'
+}
+
+/** Show first 8 chars of UUID when no human-readable name is available */
+function shortUuid(uuid: string | null | undefined): string {
+  if (!uuid) return '—';
+  return uuid.slice(0, 8) + '…';
+}
+
+function durationSeconds(minutes: string | number | null): number | null {
+  if (minutes === null || minutes === undefined) return null;
+  return Math.round(Number(minutes) * 60);
 }
 
 export default function ShiftsPage() {
@@ -24,12 +39,14 @@ export default function ShiftsPage() {
     api.getShifts(dateFilter ? `date=${dateFilter}` : '')
   );
 
-  const shifts: Shift[] = Array.isArray(data) ? data : ((data as { items?: Shift[] })?.items || []);
+  const shifts: Shift[] = Array.isArray(data)
+    ? (data as Shift[])
+    : ((data as { items?: Shift[] })?.items ?? []);
 
   return (
     <AppLayout>
       <div className="p-4 max-w-5xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h1 className="text-xl font-bold">Журнал змін</h1>
           <div className="flex items-center gap-2">
             <Label htmlFor="date-filter" className="text-sm">Дата:</Label>
@@ -50,13 +67,17 @@ export default function ShiftsPage() {
             ))}
           </div>
         ) : shifts.length === 0 ? (
-          <Card><CardContent className="py-8 text-center text-muted-foreground">Змін не знайдено</CardContent></Card>
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Змін не знайдено
+            </CardContent>
+          </Card>
         ) : (
           <>
             {/* Desktop table */}
             <div className="hidden lg:block">
               <Card>
-                <CardContent className="p-0">
+                <CardContent className="p-0 overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b">
@@ -71,18 +92,41 @@ export default function ShiftsPage() {
                     </thead>
                     <tbody>
                       {shifts.map((shift) => {
-                        const dur = shift.ended_at
-                          ? Math.floor((new Date(shift.ended_at).getTime() - new Date(shift.started_at).getTime()) / 1000)
-                          : null;
+                        const durSec = durationSeconds(shift.duration_minutes);
+                        const isActive = shift.status === 'active';
                         return (
                           <tr key={shift.id} className="border-b last:border-0 hover:bg-muted/30">
-                            <td className="p-4">{shift.id}</td>
-                            <td className="p-4">{shift.generator_name || `#${shift.generator_id}`}</td>
-                            <td className="p-4">{formatDateTime(shift.started_at)}</td>
-                            <td className="p-4">{shift.ended_at ? formatDateTime(shift.ended_at) : <span className="text-green-500">Активна</span>}</td>
-                            <td className="p-4">{dur !== null ? formatDuration(dur) : '—'}</td>
-                            <td className="p-4">{shift.fuel_used_liters ? formatLiters(shift.fuel_used_liters) : '—'}</td>
-                            <td className="p-4">{shift.started_by || '—'}</td>
+                            <td className="p-4 tabular-nums font-medium">{shift.shift_number}</td>
+                            <td className="p-4">
+                              {shift.generator_name
+                                ? shift.generator_name
+                                : <span className="text-muted-foreground font-mono text-xs">{shortUuid(shift.generator_id)}</span>
+                              }
+                            </td>
+                            <td className="p-4 tabular-nums">{formatDateTime(shift.started_at)}</td>
+                            <td className="p-4 tabular-nums">
+                              {isActive
+                                ? <span className="text-green-500 font-medium">Активна</span>
+                                : shift.stopped_at ? formatDateTime(shift.stopped_at) : '—'
+                              }
+                            </td>
+                            <td className="p-4 tabular-nums">
+                              {durSec !== null ? formatDuration(durSec) : isActive ? <span className="text-muted-foreground">—</span> : '—'}
+                            </td>
+                            <td className="p-4 tabular-nums">
+                              {shift.fuel_consumed_liters != null
+                                ? formatLiters(Number(shift.fuel_consumed_liters))
+                                : '—'
+                              }
+                            </td>
+                            <td className="p-4">
+                              {shift.started_by_name
+                                ? shift.started_by_name
+                                : shift.started_by
+                                  ? <span className="text-muted-foreground font-mono text-xs">{shortUuid(shift.started_by)}</span>
+                                  : '—'
+                              }
+                            </td>
                           </tr>
                         );
                       })}
@@ -91,44 +135,61 @@ export default function ShiftsPage() {
                 </CardContent>
               </Card>
             </div>
+
             {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {shifts.map((shift) => {
-                const dur = shift.ended_at
-                  ? Math.floor((new Date(shift.ended_at).getTime() - new Date(shift.started_at).getTime()) / 1000)
-                  : null;
+                const durSec = durationSeconds(shift.duration_minutes);
+                const isActive = shift.status === 'active';
                 return (
                   <Card key={shift.id}>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Зміна #{shift.id} — {shift.generator_name || `Генератор #${shift.generator_id}`}</CardTitle>
+                      <CardTitle className="text-sm">
+                        Зміна #{shift.shift_number}
+                        {' — '}
+                        {shift.generator_name
+                          ? shift.generator_name
+                          : <span className="font-mono text-xs">{shortUuid(shift.generator_id)}</span>
+                        }
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Початок</span>
-                        <span>{formatDateTime(shift.started_at)}</span>
+                        <span className="tabular-nums">{formatDateTime(shift.started_at)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Кінець</span>
-                        <span>{shift.ended_at ? formatDateTime(shift.ended_at) : <span className="text-green-500">Активна</span>}</span>
+                        <span>
+                          {isActive
+                            ? <span className="text-green-500 font-medium">Активна</span>
+                            : shift.stopped_at ? formatDateTime(shift.stopped_at) : '—'
+                          }
+                        </span>
                       </div>
-                      {dur !== null && (
+                      {durSec !== null && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Тривалість</span>
-                          <span>{formatDuration(dur)}</span>
+                          <span className="tabular-nums">{formatDuration(durSec)}</span>
                         </div>
                       )}
-                      {shift.fuel_used_liters && (
+                      {shift.fuel_consumed_liters != null && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Паливо</span>
-                          <span>{formatLiters(shift.fuel_used_liters)}</span>
+                          <span className="tabular-nums">{formatLiters(Number(shift.fuel_consumed_liters))}</span>
                         </div>
                       )}
-                      {shift.started_by && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Оператор</span>
-                          <span>{shift.started_by}</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Оператор</span>
+                        <span>
+                          {shift.started_by_name
+                            ? shift.started_by_name
+                            : shift.started_by
+                              ? <span className="font-mono text-xs">{shortUuid(shift.started_by)}</span>
+                              : '—'
+                          }
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
                 );
