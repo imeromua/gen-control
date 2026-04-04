@@ -35,7 +35,7 @@ async def create_generator(
     db: AsyncSession = Depends(get_db),
 ):
     service = GeneratorService(db)
-    return await service.create(data, current_user.id)
+    return await service.create(data, current_user)
 
 
 @router.get("/{generator_id}", response_model=GeneratorResponse)
@@ -56,7 +56,7 @@ async def update_generator(
     db: AsyncSession = Depends(get_db),
 ):
     service = GeneratorService(db)
-    return await service.update(generator_id, data, current_user.id)
+    return await service.update(generator_id, data, current_user)
 
 
 @router.delete("/{generator_id}", response_model=GeneratorResponse)
@@ -66,7 +66,7 @@ async def deactivate_generator(
     db: AsyncSession = Depends(get_db),
 ):
     service = GeneratorService(db)
-    return await service.deactivate(generator_id, current_user.id)
+    return await service.deactivate(generator_id, current_user)
 
 
 @router.get("/{generator_id}/settings", response_model=GeneratorSettingsResponse)
@@ -87,7 +87,7 @@ async def update_settings(
     db: AsyncSession = Depends(get_db),
 ):
     service = GeneratorService(db)
-    return await service.update_settings(generator_id, data, current_user.id)
+    return await service.update_settings(generator_id, data, current_user)
 
 
 @router.get("/{generator_id}/status", response_model=GeneratorStatusResponse)
@@ -98,3 +98,13 @@ async def get_status(
 ):
     service = GeneratorService(db)
     return await service.get_status(generator_id)
+
+
+@router.post("/{generator_id}/maintenance", response_model=GeneratorResponse)
+async def record_maintenance(
+    generator_id: uuid.UUID,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = GeneratorService(db)
+    return await service.record_maintenance(generator_id, current_user)

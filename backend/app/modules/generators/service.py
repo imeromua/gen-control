@@ -18,6 +18,12 @@ from app.modules.generators.schemas import (
     GeneratorUpdate,
 )
 from app.modules.motohours.repository import MotohoursRepository
+from app.modules.users.models import User
+
+
+def _user_name(user: User) -> str:
+    """Return 'Full Name (username)' string."""
+    return f"{user.full_name} ({user.username})"
 
 
 class GeneratorService:
@@ -37,9 +43,7 @@ class GeneratorService:
             )
         return generator
 
-    async def create(
-        self, data: GeneratorCreate, current_user_id: uuid.UUID
-    ) -> Generator:
+    async def create(self, data: GeneratorCreate, current_user: User) -> Generator:
         try:
             generator = Generator(
                 name=data.name,
@@ -60,8 +64,13 @@ class GeneratorService:
                 EventLog(
                     event_type=EventType.GENERATOR_CREATED.value,
                     generator_id=created.id,
-                    performed_by=current_user_id,
-                    meta={"name": data.name, "type": data.type.value},
+                    performed_by=current_user.id,
+                    meta={
+                        "generator_name": data.name,
+                        "performed_by_name": _user_name(current_user),
+                        "name": data.name,
+                        "type": data.type.value,
+                    },
                 )
             )
 
@@ -73,7 +82,7 @@ class GeneratorService:
             raise e
 
     async def update(
-        self, generator_id: uuid.UUID, data: GeneratorUpdate, current_user_id: uuid.UUID
+        self, generator_id: uuid.UUID, data: GeneratorUpdate, current_user: User
     ) -> Generator:
         try:
             generator = await self.get_by_id(generator_id)
@@ -95,7 +104,11 @@ class GeneratorService:
                 EventLog(
                     event_type=EventType.GENERATOR_UPDATED.value,
                     generator_id=generator_id,
-                    performed_by=current_user_id,
+                    performed_by=current_user.id,
+                    meta={
+                        "generator_name": generator.name,
+                        "performed_by_name": _user_name(current_user),
+                    },
                 )
             )
 
@@ -107,7 +120,7 @@ class GeneratorService:
             raise e
 
     async def deactivate(
-        self, generator_id: uuid.UUID, current_user_id: uuid.UUID
+        self, generator_id: uuid.UUID, current_user: User
     ) -> Generator:
         try:
             generator = await self.get_by_id(generator_id)
@@ -119,7 +132,11 @@ class GeneratorService:
                 EventLog(
                     event_type=EventType.GENERATOR_DEACTIVATED.value,
                     generator_id=generator_id,
-                    performed_by=current_user_id,
+                    performed_by=current_user.id,
+                    meta={
+                        "generator_name": generator.name,
+                        "performed_by_name": _user_name(current_user),
+                    },
                 )
             )
 
@@ -140,10 +157,10 @@ class GeneratorService:
         return settings
 
     async def update_settings(
-        self, generator_id: uuid.UUID, data: GeneratorSettingsUpdate, current_user_id: uuid.UUID
+        self, generator_id: uuid.UUID, data: GeneratorSettingsUpdate, current_user: User
     ) -> GeneratorSettings:
         try:
-            await self.get_by_id(generator_id)
+            generator = await self.get_by_id(generator_id)
             settings = await self.repo.get_settings(generator_id)
             if not settings:
                 raise NotFoundException(detail=f"Settings for generator '{generator_id}' not found")
@@ -170,7 +187,7 @@ class GeneratorService:
             settings.min_pause_between_starts_min = data.min_pause_between_starts_min
             settings.expected_consumption_deviation_pct = data.expected_consumption_deviation_pct
             settings.initial_motohours = data.initial_motohours
-            settings.updated_by = current_user_id
+            settings.updated_by = current_user.id
 
             updated = await self.repo.update_settings(settings)
 
@@ -184,14 +201,44 @@ class GeneratorService:
                 EventLog(
                     event_type=EventType.GENERATOR_SETTINGS_UPDATED.value,
                     generator_id=generator_id,
-                    performed_by=current_user_id,
-                    meta={"old": old_data, "new": new_data},
+                    performed_by=current_user.id,
+                    meta={
+                        "generator_name": generator.name,
+                        "performed_by_name": _user_name(current_user),
+                        "old": old_data,
+                        "new": new_data,
+                    },
                 )
             )
 
             await self.db.commit()
             await self.db.refresh(updated)
             return updated
+        except Exception as e:
+            await self.db.rollback()
+            raise e
+
+    async def record_maintenance(
+        self, generator_id: uuid.UUID, current_user: User
+    ) -> Generator:
+        try:
+            generator = await self.get_by_id(generator_id)
+
+            await self.repo.add_event(
+                EventLog(
+                    event_type=EventType.MAINTENANCE_PERFORMED.value,
+                    generator_id=generator_id,
+                    performed_by=current_user.id,
+                    meta={
+                        "generator_name": generator.name,
+                        "performed_by_name": _user_name(current_user),
+                    },
+                )
+            )
+
+            await self.db.commit()
+            await self.db.refresh(generator)
+            return generator
         except Exception as e:
             await self.db.rollback()
             raise e
@@ -245,19 +292,6 @@ class GeneratorService:
             if settings and settings.tank_capacity_liters is not None
             else None
         )
-        fuel_warning_level = (
-            Decimal(str(settings.fuel_warning_level))
-            if settings and settings.fuel_warning_level is not None
-            else None
-        )
-        fuel_critical_level = (
-            Decimal(str(settings.fuel_critical_level))
-            if settings and settings.fuel_critical_level is not None
-            else None
-        )
-
-        _ = fuel_warning_level
-        _ = fuel_critical_level
 
         return GeneratorStatusResponse(
             generator_id=generator.id,
