@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.modules.shifts.models import Shift, SystemSettings
 
@@ -20,6 +21,20 @@ class SystemSettingsRepository:
         return settings
 
 
+def _shift_query_with_joins():
+    """Base select that eagerly loads Generator and started_by User."""
+    from app.modules.generators.models import Generator
+    from app.modules.users.models import User as UserModel
+
+    return (
+        select(Shift)
+        .options(
+            joinedload(Shift.generator),
+            joinedload(Shift.operator),
+        )
+    )
+
+
 class ShiftRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -29,23 +44,25 @@ class ShiftRepository:
         generator_id: uuid.UUID | None = None,
         status: str | None = None,
     ) -> list[Shift]:
-        query = select(Shift).order_by(Shift.started_at.desc())
+        query = _shift_query_with_joins().order_by(Shift.started_at.desc())
         if generator_id is not None:
             query = query.where(Shift.generator_id == generator_id)
         if status is not None:
             query = query.where(Shift.status == status)
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return list(result.unique().scalars().all())
 
     async def get_by_id(self, shift_id: uuid.UUID) -> Shift | None:
-        result = await self.db.execute(select(Shift).where(Shift.id == shift_id))
-        return result.scalar_one_or_none()
+        result = await self.db.execute(
+            _shift_query_with_joins().where(Shift.id == shift_id)
+        )
+        return result.unique().scalar_one_or_none()
 
     async def get_any_active(self) -> Shift | None:
         result = await self.db.execute(
-            select(Shift).where(Shift.status == "ACTIVE").limit(1)
+            _shift_query_with_joins().where(Shift.status == "ACTIVE").limit(1)
         )
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     async def get_active_for_generator(self, generator_id: uuid.UUID) -> Shift | None:
         result = await self.db.execute(

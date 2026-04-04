@@ -18,6 +18,16 @@ from app.modules.shifts.schemas import ShiftStartRequest, WorkTimeUpdate
 from app.modules.users.models import User
 
 
+def _enrich(shift: Shift) -> Shift:
+    """Attach generator_name and started_by_name as transient attributes."""
+    if shift.generator is not None:
+        shift.__dict__["generator_name"] = shift.generator.name
+    if shift.operator is not None:
+        u = shift.operator
+        shift.__dict__["started_by_name"] = f"{u.full_name} ({u.username})"
+    return shift
+
+
 class ShiftService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -33,16 +43,18 @@ class ShiftService:
         generator_id: uuid.UUID | None = None,
         status: str | None = None,
     ) -> list[Shift]:
-        return await self.repo.get_all(generator_id=generator_id, status=status)
+        shifts = await self.repo.get_all(generator_id=generator_id, status=status)
+        return [_enrich(s) for s in shifts]
 
     async def get_by_id(self, shift_id: uuid.UUID) -> Shift:
         shift = await self.repo.get_by_id(shift_id)
         if not shift:
             raise NotFoundException(detail=f"Shift with id '{shift_id}' not found")
-        return shift
+        return _enrich(shift)
 
     async def get_active(self) -> Shift | None:
-        return await self.repo.get_any_active()
+        shift = await self.repo.get_any_active()
+        return _enrich(shift) if shift else None
 
     async def start(self, data: ShiftStartRequest, current_user: User) -> Shift:
         await self.rules.check_working_hours()
@@ -83,6 +95,9 @@ class ShiftService:
         )
 
         await self.db.flush()
+        # manually attach names since we just created (no joined load yet)
+        created.__dict__["generator_name"] = generator.name
+        created.__dict__["started_by_name"] = f"{current_user.full_name} ({current_user.username})"
         return created
 
     async def stop(self, shift_id: uuid.UUID, current_user: User) -> Shift:
@@ -107,6 +122,10 @@ class ShiftService:
             ).quantize(Decimal("0.001"))
 
         motohours_accumulated = (duration_minutes / Decimal("60")).quantize(Decimal("0.001"))
+
+        # save names before update flushes the session
+        gen_name: str | None = shift.__dict__.get("generator_name")
+        operator_name: str | None = shift.__dict__.get("started_by_name")
 
         shift.stopped_by = current_user.id
         shift.stopped_at = now
@@ -155,6 +174,9 @@ class ShiftService:
         )
 
         await self.db.flush()
+        # re-attach names after flush
+        updated.__dict__["generator_name"] = gen_name
+        updated.__dict__["started_by_name"] = operator_name
         return updated
 
     async def get_work_time_settings(self) -> SystemSettings | None:

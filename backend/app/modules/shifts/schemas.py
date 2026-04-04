@@ -15,7 +15,9 @@ class ShiftResponse(BaseModel):
     id: uuid.UUID
     shift_number: int
     generator_id: uuid.UUID
+    generator_name: str | None = None
     started_by: uuid.UUID | None
+    started_by_name: str | None = None   # "{full_name} ({username})"
     started_at: datetime
     stopped_by: uuid.UUID | None
     stopped_at: datetime | None
