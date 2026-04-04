@@ -13,7 +13,7 @@ import {
   Zap, Clock, Fuel, Settings, AlertTriangle, Calendar,
   CheckCircle2, Activity, TrendingDown, AlertCircle
 } from 'lucide-react';
-import type { Generator, EventLog } from '@/types/api';
+import type { GeneratorDashboard, EventLog } from '@/types/api';
 
 const EVENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   SHIFT_START: CheckCircle2,
@@ -47,7 +47,7 @@ export default function DashboardPage() {
     setStarting(true);
     try {
       const generators = data?.generators || [];
-      if (generators.length === 0) throw new Error('Немає генераторів');
+      if (generators.length === 0) throw new Error('Немає активних генераторів');
       await api.startShift({ generator_id: generators[0].id });
       toast({ title: 'Зміну розпочато', description: `Генератор ${generators[0].name}` });
       mutate();
@@ -88,8 +88,8 @@ export default function DashboardPage() {
   const fuelPct = data?.fuel_stock
     ? Math.round((data.fuel_stock.current_liters / data.fuel_stock.max_limit_liters) * 100)
     : 0;
-  const isLowFuel = data?.fuel_stock && data.fuel_stock.current_liters <= data.fuel_stock.warning_level_liters;
-  const isCriticalFuel = data?.fuel_stock && data.fuel_stock.current_liters <= (data.fuel_stock.warning_level_liters / 2);
+  const isLowFuel = data?.fuel_stock?.warning_active;
+  const isCriticalFuel = data?.fuel_stock?.critical_active;
 
   return (
     <AppLayout>
@@ -101,17 +101,18 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-green-500">
                   <Activity className="h-5 w-5 animate-pulse" />
-                  <span className="font-semibold">Активна зміна</span>
+                  <span className="font-semibold">Активна зміна #{data.active_shift.shift_number}</span>
                 </div>
                 <div className="text-4xl font-mono font-bold tracking-wider">
                   {formatDuration(elapsed)}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {data.active_shift.generator_name} • Запустив: {data.active_shift.started_by}
+                  {data.active_shift.generator_name}
+                  {data.active_shift.started_by_name ? ` • Запустив: ${data.active_shift.started_by_name}` : ''}
                 </div>
                 <div className="text-sm">
-                  Паливо: <strong>{formatLiters(data.active_shift.fuel_used_liters || 0)}</strong> •
-                  Мотогодини: <strong>{(data.active_shift.motohours || 0).toFixed(2)} год</strong>
+                  Паливо (оцінка): <strong>{formatLiters(data.active_shift.fuel_consumed_estimate_liters || 0)}</strong> •
+                  Тривалість: <strong>{(data.active_shift.duration_minutes / 60).toFixed(2)} год</strong>
                 </div>
                 {confirming === 'stop' ? (
                   <div className="flex gap-2">
@@ -200,15 +201,15 @@ export default function DashboardPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Змін</span>
-                  <strong>{data?.today_stats?.shifts_count || 0}</strong>
+                  <strong>{data?.today_stats?.shifts_count ?? 0}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Годин роботи</span>
-                  <strong>{(data?.today_stats?.total_hours || 0).toFixed(1)}</strong>
+                  <strong>{(data?.today_stats?.total_hours_worked ?? 0).toFixed(1)}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Витрачено палива</span>
-                  <strong>{formatLiters(data?.today_stats?.total_fuel_liters || 0)}</strong>
+                  <strong>{formatLiters(data?.today_stats?.total_fuel_consumed_liters ?? 0)}</strong>
                 </div>
               </div>
             </CardContent>
@@ -225,13 +226,13 @@ export default function DashboardPage() {
             <CardContent>
               {data?.next_outage ? (
                 <div className="space-y-1 text-sm">
-                  <div className="font-semibold">{formatDateTime(data.next_outage.start_time)}</div>
+                  <div className="font-semibold">{data.next_outage.outage_date}</div>
                   <div className="text-muted-foreground">
-                    Тривалість: {data.next_outage.duration_hours} год
+                    {data.next_outage.hour_start}:00 – {data.next_outage.hour_end}:00
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatDateRelative(data.next_outage.start_time)}
-                  </div>
+                  {data.next_outage.note && (
+                    <div className="text-xs text-muted-foreground">{data.next_outage.note}</div>
+                  )}
                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">Немає запланованих</p>
@@ -243,31 +244,39 @@ export default function DashboardPage() {
         {/* Generators */}
         {data?.generators && data.generators.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {data.generators.map((gen: Generator) => {
-              const toMaintenance = gen.maintenance_interval_h - gen.motohours_since_maintenance;
-              const maintPct = Math.round((gen.motohours_since_maintenance / gen.maintenance_interval_h) * 100);
-              const needsMaintenance = toMaintenance <= 10;
+            {data.generators.map((gen: GeneratorDashboard) => {
+              const toHours = gen.hours_to_next_to ?? null;
+              const maintPct = gen.hours_to_next_to != null && gen.motohours_since_last_to != null
+                ? Math.min(
+                    Math.round(
+                      (gen.motohours_since_last_to /
+                        (gen.motohours_since_last_to + gen.hours_to_next_to)) * 100
+                    ),
+                    100
+                  )
+                : 0;
               return (
                 <Card key={gen.id}>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Zap className="h-4 w-4 text-yellow-500" />
                       {gen.name}
+                      <span className="text-xs text-muted-foreground ml-auto">{gen.type}</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="text-sm">
                       <span className="text-muted-foreground">Мотогодини: </span>
-                      <strong>{gen.motohours_total.toFixed(1)} год</strong>
+                      <strong>{Number(gen.motohours_total).toFixed(1)} год</strong>
                     </div>
                     <div className="text-sm flex justify-between">
                       <span className="text-muted-foreground">До ТО:</span>
-                      <span className={needsMaintenance ? 'text-red-500 font-bold' : ''}>
-                        {toMaintenance.toFixed(1)} год
+                      <span className={gen.to_warning_active ? 'text-red-500 font-bold' : ''}>
+                        {toHours != null ? `${Number(toHours).toFixed(1)} год` : '—'}
                       </span>
                     </div>
-                    <Progress value={Math.min(maintPct, 100)} className={needsMaintenance ? '[&>div]:bg-red-500' : ''} />
-                    {needsMaintenance && (
+                    <Progress value={maintPct} className={gen.to_warning_active ? '[&>div]:bg-red-500' : ''} />
+                    {gen.to_warning_active && (
                       <div className="flex items-center gap-1 text-xs text-red-500">
                         <AlertCircle className="h-3 w-3" />
                         Необхідне технічне обслуговування
@@ -295,7 +304,10 @@ export default function DashboardPage() {
                     <div key={event.id} className="flex items-start gap-2 text-sm">
                       <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${color}`} />
                       <div className="flex-1 min-w-0">
-                        <span className="truncate">{event.description}</span>
+                        <span className="truncate">
+                          {event.generator_name ? `[${event.generator_name}] ` : ''}
+                          {event.event_type.replace(/_/g, ' ')}
+                        </span>
                       </div>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
                         {formatDateRelative(event.created_at)}

@@ -14,25 +14,38 @@ import { api } from '@/lib/api';
 import { toast } from '@/hooks/useToast';
 import { AlertCircle, Settings, CheckCircle2, Lock } from 'lucide-react';
 import { CreateGeneratorDialog } from '@/components/generators/CreateGeneratorDialog';
-
-interface GeneratorData {
-  id: number;
-  name: string;
-  fuel_consumption_l_per_h: number;
-  motohours_total: number;
-  maintenance_interval_h: number;
-  motohours_since_maintenance: number;
-}
+import type { GeneratorBase, GeneratorStatus } from '@/types/api';
 
 export default function GeneratorsPage() {
   const { user } = useAuth();
   const isAdmin = (user as { role?: { name?: string } } | null)?.role?.name === 'ADMIN';
-  const { data: generators, mutate } = useSWR('generators', () => api.getGenerators());
+
+  // Список генераторів (базові дані)
+  const { data: generators, mutate } = useSWR<GeneratorBase[]>(
+    'generators-list',
+    () => api.getGenerators() as Promise<GeneratorBase[]>
+  );
+
+  // Статус кожного генератора (мотогодини, ТО)
+  const genIds = (generators ?? []).map((g) => g.id);
+  const { data: statusMap, mutate: mutateStatus } = useSWR<Record<string, GeneratorStatus>>(
+    genIds.length > 0 ? ['generators-status', ...genIds] : null,
+    async () => {
+      const entries = await Promise.all(
+        genIds.map(async (id) => {
+          const status = await api.getGeneratorStatus(id) as GeneratorStatus;
+          return [id, status] as [string, GeneratorStatus];
+        })
+      );
+      return Object.fromEntries(entries);
+    }
+  );
+
   const [maintNote, setMaintNote] = useState('');
-  const [maintOpen, setMaintOpen] = useState<number | null>(null);
+  const [maintOpen, setMaintOpen] = useState<string | null>(null);
   const [maintLoading, setMaintLoading] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [editData, setEditData] = useState<{ fuel_consumption_l_per_h?: number; maintenance_interval_h?: number }>({});
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<{ fuel_consumption_per_hour?: number; to_interval_hours?: number }>({});
   const [editLoading, setEditLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -48,14 +61,14 @@ export default function GeneratorsPage() {
     );
   }
 
-  const handleMaintenance = async (genId: number) => {
+  const handleMaintenance = async (genId: string) => {
     setMaintLoading(true);
     try {
       await api.recordMaintenance(genId, { note: maintNote });
       toast({ title: 'ТО зафіксовано' });
       setMaintOpen(null);
       setMaintNote('');
-      mutate();
+      mutateStatus();
     } catch (err: unknown) {
       toast({ title: 'Помилка', description: err instanceof Error ? err.message : 'Невідома помилка', variant: 'destructive' });
     } finally {
@@ -63,14 +76,14 @@ export default function GeneratorsPage() {
     }
   };
 
-  const handleEdit = async (genId: number) => {
+  const handleEdit = async (genId: string) => {
     setEditLoading(true);
     try {
-      await api.updateGenerator(genId, editData as Record<string, unknown>);
+      await api.updateGeneratorSettings(genId, editData as Record<string, unknown>);
       toast({ title: 'Налаштування збережено' });
       setEditId(null);
       setEditData({});
-      mutate();
+      mutateStatus();
     } catch (err: unknown) {
       toast({ title: 'Помилка', description: err instanceof Error ? err.message : 'Невідома помилка', variant: 'destructive' });
     } finally {
@@ -78,28 +91,34 @@ export default function GeneratorsPage() {
     }
   };
 
-  const genArr: GeneratorData[] = Array.isArray(generators) ? generators : [];
+  const genArr: GeneratorBase[] = Array.isArray(generators) ? generators : [];
 
   return (
     <AppLayout>
       <div className="p-4 max-w-4xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Генератори</h1>
-          {isAdmin && (
-            <Button onClick={() => setCreateOpen(true)}>+ Додати генератор</Button>
-          )}
+          <Button onClick={() => setCreateOpen(true)}>+ Додати генератор</Button>
         </div>
-        
-        <CreateGeneratorDialog 
-          open={createOpen} 
-          onOpenChange={setCreateOpen} 
-          onSuccess={() => mutate()} 
+
+        <CreateGeneratorDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onSuccess={() => { mutate(); mutateStatus(); }}
         />
 
         {genArr.map((gen) => {
-          const toMaintenance = gen.maintenance_interval_h - gen.motohours_since_maintenance;
-          const maintPct = Math.min(Math.round((gen.motohours_since_maintenance / gen.maintenance_interval_h) * 100), 100);
-          const needsMaintenance = toMaintenance <= 10;
+          const st: GeneratorStatus | undefined = statusMap?.[gen.id];
+          const toHours = st?.hours_to_next_to ?? null;
+          const motoTotal = st?.motohours_total ?? 0;
+          const motoSinceTo = st?.motohours_since_last_to ?? 0;
+          const maintPct = toHours != null
+            ? Math.min(Math.round((motoSinceTo / (motoSinceTo + toHours)) * 100), 100)
+            : 0;
+          const needsMaintenance = st?.to_warning_active ?? false;
+          const fuelConsumption = st
+            ? null  // GeneratorStatus не містить fuel_consumption, беремо з settings через окремий запит якщо потрібно
+            : null;
 
           return (
             <Card key={gen.id}>
@@ -134,10 +153,7 @@ export default function GeneratorsPage() {
 
                     <Dialog open={editId === gen.id} onOpenChange={(o) => {
                       setEditId(o ? gen.id : null);
-                      if (o) setEditData({
-                        fuel_consumption_l_per_h: gen.fuel_consumption_l_per_h,
-                        maintenance_interval_h: gen.maintenance_interval_h,
-                      });
+                      if (o) setEditData({});
                     }}>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="ghost"><Settings className="h-4 w-4" /></Button>
@@ -150,8 +166,8 @@ export default function GeneratorsPage() {
                             <Input
                               type="number"
                               step="0.01"
-                              value={editData.fuel_consumption_l_per_h || ''}
-                              onChange={e => setEditData(d => ({ ...d, fuel_consumption_l_per_h: parseFloat(e.target.value) }))}
+                              value={editData.fuel_consumption_per_hour ?? ''}
+                              onChange={e => setEditData(d => ({ ...d, fuel_consumption_per_hour: parseFloat(e.target.value) }))}
                             />
                           </div>
                           <div className="space-y-2">
@@ -159,8 +175,8 @@ export default function GeneratorsPage() {
                             <Input
                               type="number"
                               step="1"
-                              value={editData.maintenance_interval_h || ''}
-                              onChange={e => setEditData(d => ({ ...d, maintenance_interval_h: parseFloat(e.target.value) }))}
+                              value={editData.to_interval_hours ?? ''}
+                              onChange={e => setEditData(d => ({ ...d, to_interval_hours: parseFloat(e.target.value) }))}
                             />
                           </div>
                           <Button className="w-full" onClick={() => handleEdit(gen.id)} disabled={editLoading}>
@@ -173,47 +189,54 @@ export default function GeneratorsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Мотогодини всього</span>
-                    <div className="font-bold">{gen.motohours_total?.toFixed(1)} год</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Витрата</span>
-                    <div className="font-bold">{gen.fuel_consumption_l_per_h} л/год</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">До ТО залишилось</span>
-                    <div className={`font-bold ${needsMaintenance ? 'text-red-500' : ''}`}>
-                      {toMaintenance.toFixed(1)} год
+                {!st ? (
+                  <div className="text-sm text-muted-foreground animate-pulse">Завантаження даних...</div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Мотогодини всього</span>
+                        <div className="font-bold">{Number(motoTotal).toFixed(1)} год</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Тип палива</span>
+                        <div className="font-bold">{st.fuel_type ?? '—'}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">До ТО залишилось</span>
+                        <div className={`font-bold ${needsMaintenance ? 'text-red-500' : ''}`}>
+                          {toHours != null ? `${Number(toHours).toFixed(1)} год` : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">З останнього ТО</span>
+                        <div className="font-bold">{Number(motoSinceTo).toFixed(1)} год</div>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Інтервал ТО</span>
-                    <div className="font-bold">{gen.maintenance_interval_h} год</div>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Прогрес до ТО</span>
-                    <span>{maintPct}%</span>
-                  </div>
-                  <Progress value={maintPct} className={needsMaintenance ? '[&>div]:bg-red-500' : ''} />
-                </div>
-                {needsMaintenance && (
-                  <div className="flex items-center gap-1 text-xs text-red-500">
-                    <AlertCircle className="h-3 w-3" />
-                    Необхідне технічне обслуговування!
-                  </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Прогрес до ТО</span>
+                        <span>{maintPct}%</span>
+                      </div>
+                      <Progress value={maintPct} className={needsMaintenance ? '[&>div]:bg-red-500' : ''} />
+                    </div>
+                    {needsMaintenance && (
+                      <div className="flex items-center gap-1 text-xs text-red-500">
+                        <AlertCircle className="h-3 w-3" />
+                        Необхідне технічне обслуговування!
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
           );
         })}
+
         {genArr.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              Генераторів не знайдено
+              Генераторів не знайдено. Натисніть «+ Додати генератор».
             </CardContent>
           </Card>
         )}
