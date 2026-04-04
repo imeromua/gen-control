@@ -11,7 +11,7 @@ from app.modules.auth.service import AuthService
 from app.modules.users.models import User
 from app.modules.users.schemas import UserResponse
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 bearer_scheme = HTTPBearer()
 

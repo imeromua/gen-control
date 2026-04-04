@@ -42,7 +42,7 @@ async def require_admin(
     current_user: User = Depends(require_active)
 ) -> User:
     """Перевіряє, чи має користувач права адміністратора (для adjustments та users)."""
-    if current_user.role != RoleName.ADMIN:
+    if current_user.role.name != RoleName.ADMIN.value:
         raise ForbiddenException(detail="Admin privileges required")
     return current_user
 
@@ -50,14 +50,14 @@ async def require_admin_or_operator(
     current_user: User = Depends(require_active)
 ) -> User:
     """Перевіряє, чи має користувач права адміна АБО оператора (для dashboard)."""
-    if current_user.role not in [RoleName.ADMIN, RoleName.OPERATOR]:
+    if current_user.role.name not in [RoleName.ADMIN.value, RoleName.OPERATOR.value]:
         raise ForbiddenException(detail="Admin or Operator privileges required")
     return current_user
 
 def require_role(roles: list[RoleName]):
     """Універсальна фабрика для перевірки доступу за списком ролей."""
     async def role_checker(current_user: User = Depends(require_active)) -> User:
-        if current_user.role not in roles:
+        if current_user.role.name not in [r.value for r in roles]:
             raise ForbiddenException(detail="Insufficient permissions")
         return current_user
     return role_checker

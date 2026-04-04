@@ -8,7 +8,7 @@ from app.modules.auth.dependencies import require_admin
 from app.modules.users.schemas import UserCreate, UserResponse, UserUpdate
 from app.modules.users.service import UserService
 
-router = APIRouter(prefix="/api/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/", response_model=list[UserResponse])
