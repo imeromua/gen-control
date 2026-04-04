@@ -43,60 +43,60 @@ async def _seed_initial_data() -> None:
         async with AsyncSessionLocal() as db:
             repo = UserRepository(db)
 
-            role_count = await repo.count_roles()
-            if role_count == 0:
-                logger.info("Seeding roles...")
-                for role_name in RoleName:
-                    db.add(Role(name=role_name.value))
-                await db.commit()
-                logger.info("Roles created: ADMIN, OPERATOR, VIEWER")
+            async with db.begin():
+                role_count = await repo.count_roles()
+                if role_count == 0:
+                    logger.info("Seeding roles...")
+                    for role_name in RoleName:
+                        db.add(Role(name=role_name.value))
+                    logger.info("Roles created: ADMIN, OPERATOR, VIEWER")
 
-            user_count = await repo.count_users()
-            if user_count == 0:
-                logger.info("Creating first admin user...")
-                admin_role = await repo.get_role_by_name(RoleName.ADMIN.value)
-                if admin_role:
-                    admin = User(
-                        full_name=settings.ADMIN_FULLNAME,
-                        username=settings.ADMIN_USERNAME,
-                        password_hash=hash_password(settings.ADMIN_PASSWORD),
-                        role_id=admin_role.id,
-                    )
-                    db.add(admin)
-                    await db.commit()
-                    logger.info(f"Admin user '{settings.ADMIN_USERNAME}' created")
+            async with db.begin():
+                user_count = await repo.count_users()
+                if user_count == 0:
+                    logger.info("Creating first admin user...")
+                    admin_role = await repo.get_role_by_name(RoleName.ADMIN.value)
+                    if admin_role:
+                        admin = User(
+                            full_name=settings.ADMIN_FULLNAME,
+                            username=settings.ADMIN_USERNAME,
+                            password_hash=hash_password(settings.ADMIN_PASSWORD),
+                            role_id=admin_role.id,
+                        )
+                        db.add(admin)
+                        logger.info(f"Admin user '{settings.ADMIN_USERNAME}' created")
 
-            settings_repo = SystemSettingsRepository(db)
-            existing_settings = await settings_repo.get()
-            if existing_settings is None:
-                logger.info("Seeding system_settings...")
-                start_h, start_m = settings.work_time_start.hour, settings.work_time_start.minute
-                end_h, end_m = settings.work_time_end.hour, settings.work_time_end.minute
-                db.add(
-                    SystemSettings(
-                        work_time_start=time(start_h, start_m),
-                        work_time_end=time(end_h, end_m),
+            async with db.begin():
+                settings_repo = SystemSettingsRepository(db)
+                existing_settings = await settings_repo.get()
+                if existing_settings is None:
+                    logger.info("Seeding system_settings...")
+                    start_h, start_m = settings.work_time_start.hour, settings.work_time_start.minute
+                    end_h, end_m = settings.work_time_end.hour, settings.work_time_end.minute
+                    db.add(
+                        SystemSettings(
+                            work_time_start=time(start_h, start_m),
+                            work_time_end=time(end_h, end_m),
+                        )
                     )
-                )
-                await db.commit()
-                logger.info(
-                    f"system_settings created: {settings.DEFAULT_WORK_TIME_START}–{settings.DEFAULT_WORK_TIME_END}"
-                )
+                    logger.info(
+                        f"system_settings created: {settings.DEFAULT_WORK_TIME_START}–{settings.DEFAULT_WORK_TIME_END}"
+                    )
 
-            fuel_repo = FuelRepository(db)
-            existing_fuel_stock = await fuel_repo.get_stock()
-            if existing_fuel_stock is None:
-                logger.info("Seeding fuel_stock...")
-                db.add(
-                    FuelStock(
-                        fuel_type="A95",
-                        current_liters=0,
-                        max_limit_liters=200,
-                        warning_level_liters=20,
+            async with db.begin():
+                fuel_repo = FuelRepository(db)
+                existing_fuel_stock = await fuel_repo.get_stock()
+                if existing_fuel_stock is None:
+                    logger.info("Seeding fuel_stock...")
+                    db.add(
+                        FuelStock(
+                            fuel_type="A95",
+                            current_liters=0,
+                            max_limit_liters=200,
+                            warning_level_liters=20,
+                        )
                     )
-                )
-                await db.commit()
-                logger.info("fuel_stock created: A95, 0/200 liters, warning at 20")
+                    logger.info("fuel_stock created: A95, 0/200 liters, warning at 20")
     except Exception as exc:
         logger.critical(
             "Failed to seed initial data. Application may be in an inconsistent state. Error: %s",
