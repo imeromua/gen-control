@@ -12,7 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/useToast';
-import { AlertCircle, Settings, CheckCircle2, Lock } from 'lucide-react';
+import { AlertCircle, Settings, CheckCircle2, Lock, Trash2 } from 'lucide-react';
 import { CreateGeneratorDialog } from '@/components/generators/CreateGeneratorDialog';
 import type { GeneratorBase, GeneratorStatus } from '@/types/api';
 
@@ -20,13 +20,11 @@ export default function GeneratorsPage() {
   const { user } = useAuth();
   const isAdmin = (user as { role?: { name?: string } } | null)?.role?.name === 'ADMIN';
 
-  // Список генераторів (базові дані)
   const { data: generators, mutate } = useSWR<GeneratorBase[]>(
     'generators-list',
     () => api.getGenerators() as Promise<GeneratorBase[]>
   );
 
-  // Статус кожного генератора (мотогодини, ТО)
   const genIds = (generators ?? []).map((g) => g.id);
   const { data: statusMap, mutate: mutateStatus } = useSWR<Record<string, GeneratorStatus>>(
     genIds.length > 0 ? ['generators-status', ...genIds] : null,
@@ -48,6 +46,9 @@ export default function GeneratorsPage() {
   const [editData, setEditData] = useState<{ fuel_consumption_per_hour?: number; to_interval_hours?: number }>({});
   const [editLoading, setEditLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  // Двокрокове підтвердження видалення
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   if (!isAdmin) {
     return (
@@ -91,6 +92,27 @@ export default function GeneratorsPage() {
     }
   };
 
+  const handleDeactivate = async (genId: string) => {
+    // Перший клік — показати підтвердження
+    if (deleteId !== genId) {
+      setDeleteId(genId);
+      return;
+    }
+    // Другий клік — виконати
+    setDeleteLoading(true);
+    try {
+      await api.deleteGenerator(genId);
+      toast({ title: 'Генератор деактивовано', description: 'Генератор приховано в неактивний стан' });
+      setDeleteId(null);
+      mutate();
+      mutateStatus();
+    } catch (err: unknown) {
+      toast({ title: 'Помилка', description: err instanceof Error ? err.message : 'Невідома помилка', variant: 'destructive' });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const genArr: GeneratorBase[] = Array.isArray(generators) ? generators : [];
 
   return (
@@ -113,24 +135,30 @@ export default function GeneratorsPage() {
           const motoTotal = st?.motohours_total ?? 0;
           const motoSinceTo = st?.motohours_since_last_to ?? 0;
           const maintPct = toHours != null
-            ? Math.min(Math.round((motoSinceTo / (motoSinceTo + toHours)) * 100), 100)
+            ? Math.min(Math.round((Number(motoSinceTo) / (Number(motoSinceTo) + Number(toHours))) * 100), 100)
             : 0;
           const needsMaintenance = st?.to_warning_active ?? false;
-          const fuelConsumption = st
-            ? null  // GeneratorStatus не містить fuel_consumption, беремо з settings через окремий запит якщо потрібно
-            : null;
+          const isConfirmingDelete = deleteId === gen.id;
 
           return (
-            <Card key={gen.id}>
+            <Card key={gen.id} className={!gen.is_active ? 'opacity-60' : ''}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center justify-between">
-                  <span>{gen.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span>{gen.name}</span>
+                    {!gen.is_active && (
+                      <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        Деактивовано
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-2">
+                    {/* ТО */}
                     <Dialog open={maintOpen === gen.id} onOpenChange={(o) => setMaintOpen(o ? gen.id : null)}>
                       <DialogTrigger asChild>
-                        <Button size="sm" variant={needsMaintenance ? 'destructive' : 'outline'}>
+                        <Button size="sm" variant={needsMaintenance ? 'destructive' : 'outline'} disabled={!gen.is_active}>
                           <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Зафіксувати ТО
+                          ТО
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
@@ -140,23 +168,22 @@ export default function GeneratorsPage() {
                             <Label>Примітка</Label>
                             <Textarea value={maintNote} onChange={e => setMaintNote(e.target.value)} placeholder="Описання виконаних робіт..." />
                           </div>
-                          <Button
-                            className="w-full"
-                            onClick={() => handleMaintenance(gen.id)}
-                            disabled={maintLoading}
-                          >
+                          <Button className="w-full" onClick={() => handleMaintenance(gen.id)} disabled={maintLoading}>
                             {maintLoading ? 'Зберігаємо...' : 'Підтвердити ТО'}
                           </Button>
                         </div>
                       </DialogContent>
                     </Dialog>
 
+                    {/* Налаштування */}
                     <Dialog open={editId === gen.id} onOpenChange={(o) => {
                       setEditId(o ? gen.id : null);
                       if (o) setEditData({});
                     }}>
                       <DialogTrigger asChild>
-                        <Button size="sm" variant="ghost"><Settings className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost">
+                          <Settings className="h-4 w-4" />
+                        </Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader><DialogTitle>Налаштування — {gen.name}</DialogTitle></DialogHeader>
@@ -164,8 +191,7 @@ export default function GeneratorsPage() {
                           <div className="space-y-2">
                             <Label>Витрата палива (л/год)</Label>
                             <Input
-                              type="number"
-                              step="0.01"
+                              type="number" step="0.01"
                               value={editData.fuel_consumption_per_hour ?? ''}
                               onChange={e => setEditData(d => ({ ...d, fuel_consumption_per_hour: parseFloat(e.target.value) }))}
                             />
@@ -173,8 +199,7 @@ export default function GeneratorsPage() {
                           <div className="space-y-2">
                             <Label>Інтервал ТО (год)</Label>
                             <Input
-                              type="number"
-                              step="1"
+                              type="number" step="1"
                               value={editData.to_interval_hours ?? ''}
                               onChange={e => setEditData(d => ({ ...d, to_interval_hours: parseFloat(e.target.value) }))}
                             />
@@ -185,9 +210,50 @@ export default function GeneratorsPage() {
                         </div>
                       </DialogContent>
                     </Dialog>
+
+                    {/* Деактивація — двокрокове підтвердження */}
+                    {gen.is_active && (
+                      isConfirmingDelete ? (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeactivate(gen.id)}
+                            disabled={deleteLoading}
+                          >
+                            {deleteLoading ? '...' : '⚠️ Так'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDeleteId(null)}
+                            disabled={deleteLoading}
+                          >
+                            Ні
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeactivate(gen.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )
+                    )}
                   </div>
                 </CardTitle>
               </CardHeader>
+
+              {/* Банер підтвердження */}
+              {isConfirmingDelete && (
+                <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+                  ⚠️ Деактивувати генератор <strong>{gen.name}</strong>? Він зникне з дашборду і не зможе запускатися. Історія збережеться.
+                </div>
+              )}
+
               <CardContent className="space-y-3">
                 {!st ? (
                   <div className="text-sm text-muted-foreground animate-pulse">Завантаження даних...</div>
@@ -197,6 +263,7 @@ export default function GeneratorsPage() {
                       <div>
                         <span className="text-muted-foreground">Мотогодини всього</span>
                         <div className="font-bold">{Number(motoTotal).toFixed(1)} год</div>
+
                       </div>
                       <div>
                         <span className="text-muted-foreground">Тип палива</span>

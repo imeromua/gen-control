@@ -36,9 +36,7 @@ export const api = {
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
 
   // Dashboard
-  // GET /api/dashboard — повна відповідь з generators[], fuel_stock, active_shift і т.д.
   dashboard: () => request<DashboardData>('/api/dashboard'),
-  // GET /api/dashboard/summary — спрощена відповідь БЕЗ generators (лише для статус-бару)
   dashboardSummary: () => request<DashboardSummaryData>('/api/dashboard/summary'),
 
   // Shifts
@@ -54,9 +52,7 @@ export const api = {
   addFuelRefill: (data: Record<string, unknown>) => request<FuelRefillItem>('/api/fuel/refills', { method: 'POST', body: JSON.stringify(data) }),
 
   // Generators
-  // GET /api/generators — список базових даних (id, name, type, is_active, ...)
   getGenerators: () => request<GeneratorList>('/api/generators'),
-  // GET /api/generators/{id}/status — повний статус (motohours, TO, паливо)
   getGeneratorStatus: (id: string) => request<GeneratorStatusData>(`/api/generators/${id}/status`),
   createGenerator: (data: Record<string, unknown>) =>
     request<GeneratorItem>('/api/generators', { method: 'POST', body: JSON.stringify(data) }),
@@ -66,6 +62,9 @@ export const api = {
     request<GeneratorItem>(`/api/generators/${id}/settings`, { method: 'PUT', body: JSON.stringify(data) }),
   recordMaintenance: (id: string | number, data: Record<string, unknown>) =>
     request<GeneratorItem>(`/api/generators/${id}/maintenance`, { method: 'POST', body: JSON.stringify(data) }),
+  // DELETE /api/generators/{id} — м'яке видалення (is_active = false)
+  deleteGenerator: (id: string) =>
+    request<GeneratorItem>(`/api/generators/${id}`, { method: 'DELETE' }),
 
   // Outage
   getOutageSchedule: () => request<OutageList>('/api/outage/schedule'),
