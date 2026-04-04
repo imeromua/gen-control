@@ -40,80 +40,95 @@ class GeneratorService:
     async def create(
         self, data: GeneratorCreate, current_user_id: uuid.UUID
     ) -> Generator:
-        generator = Generator(
-            name=data.name,
-            type=data.type.value,
-            model=data.model,
-            serial_number=data.serial_number,
-        )
-        settings = GeneratorSettings(
-            generator_id=generator.id,
-            fuel_type=FuelType.A95.value,
-            initial_motohours=Decimal("0"),
-        )
-        generator.settings = settings
-
-        created = await self.repo.create(generator)
-
-        await self.repo.add_event(
-            EventLog(
-                event_type=EventType.GENERATOR_CREATED.value,
-                generator_id=created.id,
-                performed_by=current_user_id,
-                meta={"name": data.name, "type": data.type.value},
+        try:
+            generator = Generator(
+                name=data.name,
+                type=data.type.value,
+                model=data.model,
+                serial_number=data.serial_number,
             )
-        )
+            settings = GeneratorSettings(
+                generator_id=generator.id,
+                fuel_type=FuelType.A95.value,
+                initial_motohours=Decimal("0"),
+            )
+            generator.settings = settings
 
-        await self.db.flush()
-        return created
+            created = await self.repo.create(generator)
+
+            await self.repo.add_event(
+                EventLog(
+                    event_type=EventType.GENERATOR_CREATED.value,
+                    generator_id=created.id,
+                    performed_by=current_user_id,
+                    meta={"name": data.name, "type": data.type.value},
+                )
+            )
+
+            await self.db.commit()
+            await self.db.refresh(created)
+            return created
+        except Exception as e:
+            await self.db.rollback()
+            raise e
 
     async def update(
         self, generator_id: uuid.UUID, data: GeneratorUpdate, current_user_id: uuid.UUID
     ) -> Generator:
-        generator = await self.get_by_id(generator_id)
+        try:
+            generator = await self.get_by_id(generator_id)
 
-        if data.name is not None:
-            generator.name = data.name
-        if data.type is not None:
-            generator.type = data.type.value
-        if data.model is not None:
-            generator.model = data.model
-        if data.serial_number is not None:
-            generator.serial_number = data.serial_number
-        if data.is_active is not None:
-            generator.is_active = data.is_active
+            if data.name is not None:
+                generator.name = data.name
+            if data.type is not None:
+                generator.type = data.type.value
+            if data.model is not None:
+                generator.model = data.model
+            if data.serial_number is not None:
+                generator.serial_number = data.serial_number
+            if data.is_active is not None:
+                generator.is_active = data.is_active
 
-        updated = await self.repo.update(generator)
+            updated = await self.repo.update(generator)
 
-        await self.repo.add_event(
-            EventLog(
-                event_type=EventType.GENERATOR_UPDATED.value,
-                generator_id=generator_id,
-                performed_by=current_user_id,
+            await self.repo.add_event(
+                EventLog(
+                    event_type=EventType.GENERATOR_UPDATED.value,
+                    generator_id=generator_id,
+                    performed_by=current_user_id,
+                )
             )
-        )
 
-        await self.db.flush()
-        return updated
+            await self.db.commit()
+            await self.db.refresh(updated)
+            return updated
+        except Exception as e:
+            await self.db.rollback()
+            raise e
 
     async def deactivate(
         self, generator_id: uuid.UUID, current_user_id: uuid.UUID
     ) -> Generator:
-        generator = await self.get_by_id(generator_id)
-        generator.is_active = False
+        try:
+            generator = await self.get_by_id(generator_id)
+            generator.is_active = False
 
-        updated = await self.repo.update(generator)
+            updated = await self.repo.update(generator)
 
-        await self.repo.add_event(
-            EventLog(
-                event_type=EventType.GENERATOR_DEACTIVATED.value,
-                generator_id=generator_id,
-                performed_by=current_user_id,
+            await self.repo.add_event(
+                EventLog(
+                    event_type=EventType.GENERATOR_DEACTIVATED.value,
+                    generator_id=generator_id,
+                    performed_by=current_user_id,
+                )
             )
-        )
 
-        await self.db.flush()
-        return updated
+            await self.db.commit()
+            await self.db.refresh(updated)
+            return updated
+        except Exception as e:
+            await self.db.rollback()
+            raise e
 
     async def get_settings(self, generator_id: uuid.UUID) -> GeneratorSettings:
         await self.get_by_id(generator_id)
@@ -127,54 +142,59 @@ class GeneratorService:
     async def update_settings(
         self, generator_id: uuid.UUID, data: GeneratorSettingsUpdate, current_user_id: uuid.UUID
     ) -> GeneratorSettings:
-        await self.get_by_id(generator_id)
-        settings = await self.repo.get_settings(generator_id)
-        if not settings:
-            raise NotFoundException(detail=f"Settings for generator '{generator_id}' not found")
+        try:
+            await self.get_by_id(generator_id)
+            settings = await self.repo.get_settings(generator_id)
+            if not settings:
+                raise NotFoundException(detail=f"Settings for generator '{generator_id}' not found")
 
-        old_data = {
-            "fuel_type": settings.fuel_type,
-            "tank_capacity_liters": (
-                str(settings.tank_capacity_liters)
-                if settings.tank_capacity_liters
-                else None
-            ),
-            "initial_motohours": str(settings.initial_motohours),
-        }
+            old_data = {
+                "fuel_type": settings.fuel_type,
+                "tank_capacity_liters": (
+                    str(settings.tank_capacity_liters)
+                    if settings.tank_capacity_liters
+                    else None
+                ),
+                "initial_motohours": str(settings.initial_motohours),
+            }
 
-        settings.fuel_type = data.fuel_type.value
-        settings.tank_capacity_liters = data.tank_capacity_liters
-        settings.fuel_consumption_per_hour = data.fuel_consumption_per_hour
-        settings.fuel_warning_level = data.fuel_warning_level
-        settings.fuel_critical_level = data.fuel_critical_level
-        settings.to_interval_hours = data.to_interval_hours
-        settings.to_warning_before_hours = data.to_warning_before_hours
-        settings.max_continuous_work_hours = data.max_continuous_work_hours
-        settings.max_daily_hours = data.max_daily_hours
-        settings.min_pause_between_starts_min = data.min_pause_between_starts_min
-        settings.expected_consumption_deviation_pct = data.expected_consumption_deviation_pct
-        settings.initial_motohours = data.initial_motohours
-        settings.updated_by = current_user_id
+            settings.fuel_type = data.fuel_type.value
+            settings.tank_capacity_liters = data.tank_capacity_liters
+            settings.fuel_consumption_per_hour = data.fuel_consumption_per_hour
+            settings.fuel_warning_level = data.fuel_warning_level
+            settings.fuel_critical_level = data.fuel_critical_level
+            settings.to_interval_hours = data.to_interval_hours
+            settings.to_warning_before_hours = data.to_warning_before_hours
+            settings.max_continuous_work_hours = data.max_continuous_work_hours
+            settings.max_daily_hours = data.max_daily_hours
+            settings.min_pause_between_starts_min = data.min_pause_between_starts_min
+            settings.expected_consumption_deviation_pct = data.expected_consumption_deviation_pct
+            settings.initial_motohours = data.initial_motohours
+            settings.updated_by = current_user_id
 
-        updated = await self.repo.update_settings(settings)
+            updated = await self.repo.update_settings(settings)
 
-        new_data = {
-            "fuel_type": updated.fuel_type,
-            "tank_capacity_liters": str(updated.tank_capacity_liters) if updated.tank_capacity_liters else None,
-            "initial_motohours": str(updated.initial_motohours),
-        }
+            new_data = {
+                "fuel_type": updated.fuel_type,
+                "tank_capacity_liters": str(updated.tank_capacity_liters) if updated.tank_capacity_liters else None,
+                "initial_motohours": str(updated.initial_motohours),
+            }
 
-        await self.repo.add_event(
-            EventLog(
-                event_type=EventType.GENERATOR_SETTINGS_UPDATED.value,
-                generator_id=generator_id,
-                performed_by=current_user_id,
-                meta={"old": old_data, "new": new_data},
+            await self.repo.add_event(
+                EventLog(
+                    event_type=EventType.GENERATOR_SETTINGS_UPDATED.value,
+                    generator_id=generator_id,
+                    performed_by=current_user_id,
+                    meta={"old": old_data, "new": new_data},
+                )
             )
-        )
 
-        await self.db.flush()
-        return updated
+            await self.db.commit()
+            await self.db.refresh(updated)
+            return updated
+        except Exception as e:
+            await self.db.rollback()
+            raise e
 
     async def get_status(self, generator_id: uuid.UUID) -> GeneratorStatusResponse:
         generator = await self.get_by_id(generator_id)
