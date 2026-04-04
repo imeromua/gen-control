@@ -1,45 +1,36 @@
-import calendar
-from datetime import date, datetime, timezone
-from io import BytesIO
-
-import uuid
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.modules.auth.dependencies import require_admin_or_operator
-from app.modules.reports.service import ReportService
-from app.modules.users.models import User
+from app.modules.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 @router.get("/monthly")
-async def monthly_report(
-    generator_id: uuid.UUID = Query(...),
-    year: int = Query(...),
-    month: int = Query(...),
-    fuel_price: float = Query(default=50.0),
-    current_user: User = Depends(require_admin_or_operator),
+async def download_monthly_report(
+    generator_id: int = Query(...),
+    year:         int = Query(..., ge=2020, le=2100),
+    month:        int = Query(..., ge=1,    le=12),
+    fuel_price:   float = Query(50.0, ge=0),
     db: AsyncSession = Depends(get_db),
+    _user = Depends(get_current_user),
 ):
-    """Generate monthly Excel report for a generator."""
-    service = ReportService(db)
-    buffer: BytesIO = await service.generate_monthly_excel(
+    """Генерує та повертає .xlsx звіт за місяць."""
+    from app.modules.reports.service import generate_monthly_report
+
+    xlsx_bytes = await generate_monthly_report(
+        db=db,
         generator_id=generator_id,
         year=year,
         month=month,
         fuel_price=fuel_price,
     )
 
-    ua_months = ["", "Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
-                 "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"]
-    month_name = ua_months[month]
-    filename = f"Zvit-{month:02d}.{year}.xlsx"
-
-    return StreamingResponse(
-        buffer,
+    filename = f"report_{generator_id}_{year}_{month:02d}.xlsx"
+    return Response(
+        content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
