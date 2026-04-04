@@ -1,8 +1,8 @@
 """
 Генерація місячного звіту у форматі .xlsx
 Три аркуші:
-  1. «Операційний журнал» — деталізація по зміні/добі
-  2. «Зведення місяця»    — ключові показники + денна таблиця
+  1. «Операційний журнал»  — деталізація по зміні/добі
+  2. «Зведення місяця»   — ключові показники + денна таблиця
   3. «Технічне обслуговування» — журнал ТО та залишок ресурсу
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# ─── палітра ────────────────────────────────────────────────
+# ─── палітра ──────────────────────────────────────────────
 C_HEADER_DARK  = "1F3864"
 C_HEADER_MID   = "2E75B6"
 C_HEADER_LIGHT = "BDD7EE"
@@ -52,8 +52,8 @@ def _fill(hex_color: str) -> PatternFill:
 
 
 def _border_cell(ws, row: int, col: int,
-                value: Any = None,
-                font=None, align=None, fill=None):
+                 value: Any = None,
+                 font=None, align=None, fill=None):
     cell = ws.cell(row=row, column=col, value=value)
     cell.border = BORDER
     if font:  cell.font      = font
@@ -63,7 +63,7 @@ def _border_cell(ws, row: int, col: int,
 
 
 # ═══════════════════════════════════════════════════════════
-#  АРКУШ 1 — Операційний журнал
+#  АРКУШ 1 — ОПЕРАЦІЙНИЙ ЖУРНАЛ
 # ═══════════════════════════════════════════════════════════
 def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) -> None:
     month_name    = UA_MONTHS[month]
@@ -88,8 +88,7 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
     ]
     col = 1
     for text, span in meta:
-        ws.merge_cells(start_row=2, start_column=col,
-                       end_row=2, end_column=col + span - 1)
+        ws.merge_cells(start_row=2, start_column=col, end_row=2, end_column=col + span - 1)
         c = ws.cell(row=2, column=col, value=text)
         c.font  = Font(name="Calibri", bold=True, color="FFFFFF", size=9)
         c.fill  = _fill(C_HEADER_MID)
@@ -121,7 +120,7 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
         "Д↑ Поч.", "Д↓ Кін.",
         "В↑ Поч.", "В↓ Кін.",
         "Год.", "Оператор",
-        "Пал.⬆, л", "Пал.⬇, л", "Витрата, л", "Заправка, л", "л/год",
+        "Пал.⬆ л", "Пал.⬇ л", "Витрата л", "Заправка л", "л/год",
         "Чек #", "Примітки",
     ]
     for col_idx, h in enumerate(headers, 1):
@@ -171,13 +170,13 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
             _moto("evening", "start"), _moto("evening", "end"),
             hours_str,
             operator,
-            f"{fuel_start:.1f}" if fuel_start is not None else "129.0",
-            f"{fuel_end:.1f}"   if fuel_end   is not None else "129.0",
+            f"{fuel_start:.1f}" if fuel_start is not None else "",
+            f"{fuel_end:.1f}"   if fuel_end   is not None else "",
             f"{consumed:.1f}"   if consumed   is not None else "",
             f"{refill:.1f}"     if refill               else "",
             f"{lph:.2f}"        if lph                  else "",
             "",
-            "—",
+            "",
         ]
 
         for col_idx, val in enumerate(row_values, 1):
@@ -214,7 +213,7 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
 
 
 # ═══════════════════════════════════════════════════════════
-#  АРКУШ 2 — Зведення місяця
+#  АРКУШ 2 — ЗВЕДЕННЯ МІСЯЦЯ
 # ═══════════════════════════════════════════════════════════
 def _build_summary(ws, generator, year: int, month: int,
                    days_data: list[dict], fuel_price: float) -> None:
@@ -275,8 +274,8 @@ def _build_summary(ws, generator, year: int, month: int,
     c.font = FONT_WHITE; c.fill = _fill(C_HEADER_MID)
     c.alignment = CENTER; c.border = BORDER
 
-    day_headers = ["Дата", "День", "Год.", "Пал.⬆, л", "Пал.⬇, л",
-                   "Витрата, л", "Заправка, л", "Примітки"]
+    day_headers = ["Дата", "День", "Год.", "Пал.⬆ л", "Пал.⬇ л",
+                   "Витрата л", "Заправка л", "Примітки"]
     for col_idx, h in enumerate(day_headers, 1):
         c = _border_cell(ws, header_row, col_idx, h, align=CENTER,
                          fill=_fill(C_HEADER_LIGHT))
@@ -298,11 +297,11 @@ def _build_summary(ws, generator, year: int, month: int,
             d.strftime("%d.%m.%Y"),
             UA_DAYS[d.weekday()],
             hours_str,
-            f"{fs:.1f}"  if fs  is not None else "129.0",
-            f"{fe:.1f}"  if fe  is not None else "129.0",
+            f"{fs:.1f}"  if fs  is not None else "",
+            f"{fe:.1f}"  if fe  is not None else "",
             f"{con:.1f}" if con is not None else "",
             f"{ref:.1f}" if ref             else "",
-            "—",
+            "",
         ]
         for col_idx, val in enumerate(row_vals, 1):
             _border_cell(ws, row_idx, col_idx, val,
@@ -315,12 +314,11 @@ def _build_summary(ws, generator, year: int, month: int,
 
 
 # ═══════════════════════════════════════════════════════════
-#  АРКУШ 3 — Технічне обслуговування
+#  АРКУШ 3 — ТЕХНІЧНЕ ОБСЛУГОВУВАННЯ
 # ═══════════════════════════════════════════════════════════
 def _build_maintenance(ws, generator,
                        moto_total: float,
-                       oil_remaining: float,
-                       spark_remaining: float,
+                       next_service_hours: float | None,
                        maintenance_logs: list) -> None:
     ws.title = "Технічне обслуговування"
 
@@ -331,10 +329,14 @@ def _build_maintenance(ws, generator,
     c.fill  = _fill(C_HEADER_DARK); c.alignment = CENTER
     ws.row_dimensions[1].height = 28
 
+    remaining = (next_service_hours - moto_total) if next_service_hours else None
+    remaining_str = (f"{remaining:.0f} год" if remaining and remaining > 0
+                     else "ТО прострочено" if remaining is not None and remaining <= 0
+                     else "Н/Д")
+
     meta = [
         ("Мотогодини (загалом):",  f"{moto_total:.1f} год"),
-        ("До заміни мастила:",     f"{max(oil_remaining,   0):.0f} год"),
-        ("До заміни свічок:",      f"{max(spark_remaining, 0):.0f} год"),
+        ("Наступне ТО через:",      remaining_str),
     ]
     for i, (label, val) in enumerate(meta, 2):
         ws.merge_cells(start_row=i, start_column=1, end_row=i, end_column=3)
@@ -343,8 +345,8 @@ def _build_maintenance(ws, generator,
         _border_cell(ws, i, 4, val,   font=FONT_BOLD, align=CENTER, fill=_fill(C_ALT_ROW))
 
     header_row = len(meta) + 3
-    heads  = ["Дата", "Тип ТО", "Мотогодини", "Виконав", "Примітки"]
-    widths = [18, 18, 14, 22, 30]
+    heads  = ["Дата", "Мотогодини при ТО", "Наступне ТО от", "Примітки"]
+    widths = [20, 22, 22, 36]
     for col_idx, (h, w) in enumerate(zip(heads, widths), 1):
         c = _border_cell(ws, header_row, col_idx, h,
                          align=CENTER, fill=_fill(C_HEADER_LIGHT))
@@ -354,10 +356,9 @@ def _build_maintenance(ws, generator,
     for row_idx, log in enumerate(maintenance_logs, header_row + 1):
         row_fill = _fill(C_ALT_ROW if row_idx % 2 == 0 else C_WHITE)
         vals = [
-            log.performed_at.strftime("%Y-%m-%d %H:%M:%S") if log.performed_at else "",
-            log.maintenance_type or "",
-            f"{log.motohours_at:.1f} год" if log.motohours_at else "",
-            log.performed_by or "",
+            log.performed_at.strftime("%Y-%m-%d %H:%M") if log.performed_at else "",
+            f"{log.motohours_at_service:.1f} год" if log.motohours_at_service else "",
+            f"{log.next_service_at_hours:.1f} год"  if log.next_service_at_hours else "",
             log.notes or "",
         ]
         for col_idx, val in enumerate(vals, 1):
@@ -377,10 +378,11 @@ async def generate_monthly_report(
     month: int,
     fuel_price: float = 50.0,
 ) -> bytes:
-    from sqlalchemy import select, and_, func
-    from app.modules.motohours.models import MotohoursLog, MaintenanceLog
+    from sqlalchemy import and_, func, select
+
     from app.modules.fuel.models import FuelRefill
     from app.modules.generators.models import Generator, GeneratorSettings
+    from app.modules.motohours.models import MaintenanceLog, MotohoursLog
     from app.modules.shifts.models import Shift
     from app.modules.users.models import User
 
@@ -390,13 +392,15 @@ async def generate_monthly_report(
         raise ValueError(f"Generator {generator_id} not found")
 
     # 2. зміни за місяць
+    # Shift містить: generator_id, started_by, started_at, stopped_at,
+    #   duration_minutes, fuel_consumed_liters, motohours_accumulated, status
     month_start   = date(year, month, 1)
     days_in_month = calendar.monthrange(year, month)[1]
     month_end     = date(year, month, days_in_month)
 
     shifts_result = await db.execute(
         select(Shift, User.full_name.label("operator_name"))
-        .join(User, Shift.user_id == User.id, isouter=True)
+        .join(User, Shift.started_by == User.id, isouter=True)
         .where(
             and_(
                 Shift.generator_id == generator_id,
@@ -409,39 +413,31 @@ async def generate_monthly_report(
     shifts_rows = shifts_result.all()
 
     # 3. заправки за місяць
+    # FuelRefill: generator_id, liters, tank_level_before, tank_level_after, refilled_at
     refills_result = await db.execute(
         select(FuelRefill)
         .where(
             and_(
                 FuelRefill.generator_id == generator_id,
-                func.date(FuelRefill.created_at) >= month_start,
-                func.date(FuelRefill.created_at) <= month_end,
+                func.date(FuelRefill.refilled_at) >= month_start,
+                func.date(FuelRefill.refilled_at) <= month_end,
             )
         )
     )
     refills = refills_result.scalars().all()
 
-    # 4. останнє значення мотогодин
+    # 4. останнє значення мотогодин (total_after)
     moto_result = await db.execute(
         select(MotohoursLog)
         .where(MotohoursLog.generator_id == generator_id)
-        .order_by(MotohoursLog.created_at.desc())
+        .order_by(MotohoursLog.recorded_at.desc())
         .limit(1)
     )
     last_moto  = moto_result.scalar_one_or_none()
-    moto_total = float(last_moto.total_hours) if last_moto else 0.0
+    moto_total = float(last_moto.total_after) if last_moto else 0.0
 
-    # 5. налаштування ТО
-    settings_result = await db.execute(
-        select(GeneratorSettings)
-        .where(GeneratorSettings.generator_id == generator_id)
-    )
-    gen_settings   = settings_result.scalar_one_or_none()
-    # використовуємо to_interval_hours або значення за замовчуванням
-    oil_interval   = float(gen_settings.to_interval_hours)   if gen_settings and gen_settings.to_interval_hours   else 50.0
-    spark_interval = float(gen_settings.to_interval_hours)   if gen_settings and gen_settings.to_interval_hours   else 100.0
-
-    # 6. журнал ТО
+    # 5. журнал ТО
+    # MaintenanceLog: generator_id, motohours_at_service, next_service_at_hours, notes, performed_at
     maintenance_result = await db.execute(
         select(MaintenanceLog)
         .where(MaintenanceLog.generator_id == generator_id)
@@ -449,15 +445,13 @@ async def generate_monthly_report(
     )
     maintenance_logs = maintenance_result.scalars().all()
 
-    # 7. залишок до ТО
-    last_oil   = next((m for m in maintenance_logs
-                       if m.maintenance_type in ("oil_change", "Заміна мастила")), None)
-    last_spark = next((m for m in maintenance_logs
-                       if m.maintenance_type in ("spark_change", "Заміна свічок")), None)
-    oil_remaining   = oil_interval   - (moto_total - (float(last_oil.motohours_at)   if last_oil   else 0))
-    spark_remaining = spark_interval - (moto_total - (float(last_spark.motohours_at) if last_spark else 0))
+    # 6. наступне ТО з останнього запису
+    last_maintenance    = maintenance_logs[0] if maintenance_logs else None
+    next_service_hours  = (float(last_maintenance.next_service_at_hours)
+                           if last_maintenance and last_maintenance.next_service_at_hours
+                           else None)
 
-    # 8. щоденні дані
+    # 7. щоденні дані
     def _period(shift: Shift) -> str:
         h = shift.started_at.hour
         if 5 <= h < 12:  return "morning"
@@ -470,7 +464,7 @@ async def generate_monthly_report(
 
     refills_by_date: dict[date, float] = defaultdict(float)
     for r in refills:
-        refills_by_date[r.created_at.date()] += float(r.amount_liters)
+        refills_by_date[r.refilled_at.date()] += float(r.liters)
 
     days_data: list[dict] = []
     for day_num in range(1, days_in_month + 1):
@@ -485,32 +479,37 @@ async def generate_monthly_report(
         fuel_consumed  = 0.0
 
         for shift, op_name in day_shifts_raw:
-            dur = 0.0
-            if shift.stopped_at:
+            # використовуємо duration_minutes і/або рахуємо з started_at/stopped_at
+            if shift.duration_minutes is not None:
+                dur = float(shift.duration_minutes) / 60.0
+            elif shift.stopped_at:
                 dur = (shift.stopped_at - shift.started_at).total_seconds() / 3600
+            else:
+                dur = 0.0
             total_hours += dur
 
-            moto_start = float(shift.motohours_start) if shift.motohours_start else None
-            moto_end   = float(shift.motohours_end)   if shift.motohours_end   else None
-            fs = float(shift.fuel_level_start) if shift.fuel_level_start else None
-            fe = float(shift.fuel_level_end)   if shift.fuel_level_end   else None
-            cons = (fs - fe) if fs is not None and fe is not None else None
-
+            # motohours зберігаємо з MotohoursLog через shift_id
             shifts_list.append({
                 "period":     _period(shift),
-                "moto_start": moto_start,
-                "moto_end":   moto_end,
+                "moto_start": None,  # заповнюється за потреби з moto_log
+                "moto_end":   None,
             })
             if op_name and op_name not in operators_set:
                 operators_set.append(op_name)
-            if fuel_start_val is None and fs is not None:
-                fuel_start_val = fs
-            if fe is not None:
-                fuel_end_val = fe
-            if cons:
-                fuel_consumed += cons
+
+            # паливо: використовуємо fuel_consumed_liters з зміни
+            if shift.fuel_consumed_liters is not None:
+                fuel_consumed += float(shift.fuel_consumed_liters)
 
         refill_val = refills_by_date.get(d, 0.0)
+
+        # паливні рівні беремо з заправок дня
+        day_refills = [r for r in refills if r.refilled_at.date() == d]
+        if day_refills:
+            first_r = min(day_refills, key=lambda r: r.refilled_at)
+            last_r  = max(day_refills, key=lambda r: r.refilled_at)
+            fuel_start_val = float(first_r.tank_level_before)
+            fuel_end_val   = float(last_r.tank_level_after)
 
         days_data.append({
             "date":          d,
@@ -523,15 +522,14 @@ async def generate_monthly_report(
             "fuel_refill":   refill_val    if refill_val   > 0 else None,
         })
 
-    # 9. збираємо книгу
+    # 8. збираємо книгу
     wb  = Workbook()
     ws1 = wb.active
     _build_journal(ws1, gen, year, month, days_data)
     ws2 = wb.create_sheet()
     _build_summary(ws2, gen, year, month, days_data, fuel_price)
     ws3 = wb.create_sheet()
-    _build_maintenance(ws3, gen, moto_total,
-                       oil_remaining, spark_remaining, maintenance_logs)
+    _build_maintenance(ws3, gen, moto_total, next_service_hours, maintenance_logs)
 
     buf = BytesIO()
     wb.save(buf)
