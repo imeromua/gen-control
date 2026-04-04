@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import calendar
+import uuid
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from io import BytesIO
@@ -70,7 +71,6 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
     generated_at  = datetime.now().strftime("%d.%m.%Y %H:%M")
     ws.title = "Операційний журнал"
 
-    # рядок 1: великий заголовок
     ws.merge_cells("A1:R1")
     c = ws["A1"]
     c.value = (f"Операційний журнал роботи генератора "
@@ -80,7 +80,6 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
     c.alignment = CENTER
     ws.row_dimensions[1].height = 28
 
-    # рядок 2: мета
     meta = [
         (f"Генератор: «{generator.name}»", 4),
         (f"Місяць: {month_name} {year}",   4),
@@ -99,7 +98,6 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
         col += span
     ws.row_dimensions[2].height = 20
 
-    # рядок 3: групи колонок
     groups = [
         (1,  2,  ""),
         (3,  3,  ""),
@@ -113,13 +111,10 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
     for sc, ec, label in groups:
         ws.merge_cells(start_row=3, start_column=sc, end_row=3, end_column=ec)
         c = ws.cell(row=3, column=sc, value=label)
-        c.font  = FONT_WHITE
-        c.fill  = _fill(C_HEADER_MID)
-        c.alignment = CENTER
-        c.border = BORDER
+        c.font = FONT_WHITE; c.fill = _fill(C_HEADER_MID)
+        c.alignment = CENTER; c.border = BORDER
     ws.row_dimensions[3].height = 18
 
-    # рядок 4: назви колонок
     headers = [
         "#", "Дата", "День",
         "Р↑ Поч.", "Р↓ Кін.",
@@ -134,12 +129,10 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
         c.font = Font(name="Calibri", bold=True, color="1F3864", size=9)
     ws.row_dimensions[4].height = 30
 
-    # ширини колонок
     widths = [4, 12, 5, 8, 8, 8, 8, 8, 8, 7, 16, 9, 9, 10, 10, 7, 8, 20]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
-    # рядки даних
     totals = {"hours": timedelta(), "fuel_consumed": 0.0, "fuel_refill": 0.0}
 
     for row_idx, day in enumerate(days_data, 5):
@@ -196,7 +189,6 @@ def _build_journal(ws, generator, year: int, month: int, days_data: list[dict]) 
         totals["fuel_consumed"] += consumed or 0
         totals["fuel_refill"]   += refill   or 0
 
-    # підсумковий рядок
     total_row = 5 + days_in_month
     ws.merge_cells(start_row=total_row, start_column=1,
                    end_row=total_row, end_column=9)
@@ -255,7 +247,7 @@ def _build_summary(ws, generator, year: int, month: int,
     weekend_count  = sum(1 for d in days_data if d["date"].weekday() >= 5)
     total_consumed = sum(d.get("fuel_consumed") or 0 for d in days_data)
     total_refill   = sum(d.get("fuel_refill")   or 0 for d in days_data)
-    avg_lph  = total_consumed / total_hours if total_hours > 0 else 0
+    avg_lph   = total_consumed / total_hours if total_hours > 0 else 0
     fuel_cost = total_consumed * fuel_price
 
     kpis = [
@@ -272,11 +264,10 @@ def _build_summary(ws, generator, year: int, month: int,
     for i, (label, value) in enumerate(kpis, 4):
         row_f = _fill(C_ALT_ROW if i % 2 == 0 else C_WHITE)
         ws.merge_cells(start_row=i, start_column=1, end_row=i, end_column=5)
-        _border_cell(ws, i, 1, label, font=FONT_BOLD, align=LEFT,  fill=row_f)
+        _border_cell(ws, i, 1, label, font=FONT_BOLD, align=LEFT,   fill=row_f)
         ws.merge_cells(start_row=i, start_column=6, end_row=i, end_column=8)
         _border_cell(ws, i, 6, value, font=FONT_BOLD, align=CENTER, fill=row_f)
 
-    # денна зведена таблиця
     header_row = len(kpis) + 5
     ws.merge_cells(start_row=header_row - 1,
                    start_column=1, end_row=header_row - 1, end_column=8)
@@ -381,7 +372,7 @@ def _build_maintenance(ws, generator,
 # ═══════════════════════════════════════════════════════════
 async def generate_monthly_report(
     db: AsyncSession,
-    generator_id: int,
+    generator_id: uuid.UUID,
     year: int,
     month: int,
     fuel_price: float = 50.0,
@@ -446,8 +437,9 @@ async def generate_monthly_report(
         .where(GeneratorSettings.generator_id == generator_id)
     )
     gen_settings   = settings_result.scalar_one_or_none()
-    oil_interval   = float(gen_settings.oil_change_interval)   if gen_settings else 50.0
-    spark_interval = float(gen_settings.spark_change_interval) if gen_settings else 100.0
+    # використовуємо to_interval_hours або значення за замовчуванням
+    oil_interval   = float(gen_settings.to_interval_hours)   if gen_settings and gen_settings.to_interval_hours   else 50.0
+    spark_interval = float(gen_settings.to_interval_hours)   if gen_settings and gen_settings.to_interval_hours   else 100.0
 
     # 6. журнал ТО
     maintenance_result = await db.execute(
@@ -486,7 +478,7 @@ async def generate_monthly_report(
         day_shifts_raw = shifts_by_date.get(d, [])
 
         shifts_list: list[dict] = []
-        total_hours  = 0.0
+        total_hours    = 0.0
         operators_set: list[str] = []
         fuel_start_val = None
         fuel_end_val   = None

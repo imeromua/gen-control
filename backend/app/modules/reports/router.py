@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,10 +12,10 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 @router.get("/monthly")
 async def download_monthly_report(
-    generator_id: int = Query(...),
-    year:         int = Query(..., ge=2020, le=2100),
-    month:        int = Query(..., ge=1,    le=12),
-    fuel_price:   float = Query(50.0, ge=0),
+    generator_id: uuid.UUID = Query(...),
+    year:         int        = Query(..., ge=2020, le=2100),
+    month:        int        = Query(..., ge=1,    le=12),
+    fuel_price:   float      = Query(50.0, ge=0),
     db: AsyncSession = Depends(get_db),
     _user = Depends(get_current_user),
 ):
