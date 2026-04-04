@@ -26,6 +26,7 @@ from app.modules.oil.models import OilStock  # noqa: F401 – register models
 from app.modules.oil.router import router as oil_router
 from app.modules.outage.models import OutageSchedule  # noqa: F401 – register models
 from app.modules.outage.router import router as outage_router
+from app.modules.reports.router import router as reports_router
 from app.modules.rules.service import RulesService  # noqa: F401
 from app.modules.shifts.models import Shift, SystemSettings  # noqa: F401 – register models
 from app.modules.shifts.repository import SystemSettingsRepository
@@ -136,6 +137,7 @@ app.include_router(adjustments_router, prefix="/api")
 app.include_router(outage_router, prefix="/api")
 app.include_router(events_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
+app.include_router(reports_router, prefix="/api")
 
 
 @app.get("/health", tags=["health"])
