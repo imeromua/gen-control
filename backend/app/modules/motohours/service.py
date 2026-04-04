@@ -101,23 +101,23 @@ class MotohoursService:
             next_service_at_hours=next_service_at_hours,
             notes=data.notes,
         )
-        
-        async with self.db.begin():
-            created = await self.repo.create_maintenance(entry)
 
-            event = EventLog(
-                event_type=EventType.MAINTENANCE_PERFORMED.value,
-                generator_id=generator_id,
-                performed_by=current_user_id,
-                meta={
-                    "motohours_at_service": str(motohours_total),
-                    "next_service_at_hours": (
-                        str(next_service_at_hours)
-                        if next_service_at_hours
-                        else None
-                    ),
-                },
-            )
-            await self.gen_repo.add_event(event)
+        created = await self.repo.create_maintenance(entry)
 
+        event = EventLog(
+            event_type=EventType.MAINTENANCE_PERFORMED.value,
+            generator_id=generator_id,
+            performed_by=current_user_id,
+            meta={
+                "motohours_at_service": str(motohours_total),
+                "next_service_at_hours": (
+                    str(next_service_at_hours)
+                    if next_service_at_hours
+                    else None
+                ),
+            },
+        )
+        await self.gen_repo.add_event(event)
+
+        await self.db.flush()
         return MaintenanceLogResponse.model_validate(created)

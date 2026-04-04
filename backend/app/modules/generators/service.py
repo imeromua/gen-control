@@ -46,7 +46,6 @@ class GeneratorService:
             model=data.model,
             serial_number=data.serial_number,
         )
-        # Create default settings alongside the generator
         settings = GeneratorSettings(
             generator_id=generator.id,
             fuel_type=FuelType.A95.value,
@@ -54,18 +53,18 @@ class GeneratorService:
         )
         generator.settings = settings
 
-        async with self.db.begin():
-            created = await self.repo.create(generator)
+        created = await self.repo.create(generator)
 
-            await self.repo.add_event(
-                EventLog(
-                    event_type=EventType.GENERATOR_CREATED.value,
-                    generator_id=created.id,
-                    performed_by=current_user_id,
-                    meta={"name": data.name, "type": data.type.value},
-                )
+        await self.repo.add_event(
+            EventLog(
+                event_type=EventType.GENERATOR_CREATED.value,
+                generator_id=created.id,
+                performed_by=current_user_id,
+                meta={"name": data.name, "type": data.type.value},
             )
-        
+        )
+
+        await self.db.flush()
         return created
 
     async def update(
@@ -84,17 +83,17 @@ class GeneratorService:
         if data.is_active is not None:
             generator.is_active = data.is_active
 
-        async with self.db.begin():
-            updated = await self.repo.update(generator)
+        updated = await self.repo.update(generator)
 
-            await self.repo.add_event(
-                EventLog(
-                    event_type=EventType.GENERATOR_UPDATED.value,
-                    generator_id=generator_id,
-                    performed_by=current_user_id,
-                )
+        await self.repo.add_event(
+            EventLog(
+                event_type=EventType.GENERATOR_UPDATED.value,
+                generator_id=generator_id,
+                performed_by=current_user_id,
             )
-        
+        )
+
+        await self.db.flush()
         return updated
 
     async def deactivate(
@@ -102,18 +101,18 @@ class GeneratorService:
     ) -> Generator:
         generator = await self.get_by_id(generator_id)
         generator.is_active = False
-        
-        async with self.db.begin():
-            updated = await self.repo.update(generator)
 
-            await self.repo.add_event(
-                EventLog(
-                    event_type=EventType.GENERATOR_DEACTIVATED.value,
-                    generator_id=generator_id,
-                    performed_by=current_user_id,
-                )
+        updated = await self.repo.update(generator)
+
+        await self.repo.add_event(
+            EventLog(
+                event_type=EventType.GENERATOR_DEACTIVATED.value,
+                generator_id=generator_id,
+                performed_by=current_user_id,
             )
-        
+        )
+
+        await self.db.flush()
         return updated
 
     async def get_settings(self, generator_id: uuid.UUID) -> GeneratorSettings:
@@ -157,24 +156,24 @@ class GeneratorService:
         settings.initial_motohours = data.initial_motohours
         settings.updated_by = current_user_id
 
-        async with self.db.begin():
-            updated = await self.repo.update_settings(settings)
+        updated = await self.repo.update_settings(settings)
 
-            new_data = {
-                "fuel_type": updated.fuel_type,
-                "tank_capacity_liters": str(updated.tank_capacity_liters) if updated.tank_capacity_liters else None,
-                "initial_motohours": str(updated.initial_motohours),
-            }
+        new_data = {
+            "fuel_type": updated.fuel_type,
+            "tank_capacity_liters": str(updated.tank_capacity_liters) if updated.tank_capacity_liters else None,
+            "initial_motohours": str(updated.initial_motohours),
+        }
 
-            await self.repo.add_event(
-                EventLog(
-                    event_type=EventType.GENERATOR_SETTINGS_UPDATED.value,
-                    generator_id=generator_id,
-                    performed_by=current_user_id,
-                    meta={"old": old_data, "new": new_data},
-                )
+        await self.repo.add_event(
+            EventLog(
+                event_type=EventType.GENERATOR_SETTINGS_UPDATED.value,
+                generator_id=generator_id,
+                performed_by=current_user_id,
+                meta={"old": old_data, "new": new_data},
             )
-        
+        )
+
+        await self.db.flush()
         return updated
 
     async def get_status(self, generator_id: uuid.UUID) -> GeneratorStatusResponse:
@@ -194,8 +193,6 @@ class GeneratorService:
         )
 
         hours_since_to = await self.moto_repo.get_motohours_since_last_maintenance(generator_id)
-        # hours_since_to only counts motohours_log entries after last maintenance;
-        # add initial_motohours if there is no maintenance record at all
         last_maintenance = await self.moto_repo.get_last_maintenance(generator_id)
         if last_maintenance is None:
             motohours_since_last_to = motohours_total
@@ -239,8 +236,6 @@ class GeneratorService:
             else None
         )
 
-        # Placeholder indicators - assuming no current fuel data available here
-        # But we use the variables to avoid lint errors if we want to keep them for future logic
         _ = fuel_warning_level
         _ = fuel_critical_level
 

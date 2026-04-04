@@ -44,10 +44,9 @@ class UserService:
             password_hash=hash_password(data.password),
             role_id=data.role_id,
         )
-        
-        async with self.db.begin():
-            created = await self.repo.create(user)
-        
+
+        created = await self.repo.create(user)
+        await self.db.flush()
         return created
 
     async def update(self, user_id: uuid.UUID, data: UserUpdate) -> User:
@@ -65,16 +64,13 @@ class UserService:
         if data.is_active is not None:
             user.is_active = data.is_active
 
-        async with self.db.begin():
-            updated = await self.repo.update(user)
-        
+        updated = await self.repo.update(user)
+        await self.db.flush()
         return updated
 
     async def deactivate(self, user_id: uuid.UUID) -> User:
         user = await self.get_by_id(user_id)
         user.is_active = False
-        
-        async with self.db.begin():
-            updated = await self.repo.update(user)
-        
+        updated = await self.repo.update(user)
+        await self.db.flush()
         return updated

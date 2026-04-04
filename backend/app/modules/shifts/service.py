@@ -66,22 +66,23 @@ class ShiftService:
             started_at=now,
             status=ShiftStatus.ACTIVE.value,
         )
-        async with self.db.begin():
-            created = await self.repo.create(shift)
 
-            await self.gen_repo.add_event(
-                EventLog(
-                    event_type=EventType.SHIFT_STARTED.value,
-                    generator_id=data.generator_id,
-                    performed_by=current_user.id,
-                    meta={
-                        "shift_number": shift_number,
-                        "generator_id": str(data.generator_id),
-                        "generator_name": generator.name,
-                    },
-                )
+        created = await self.repo.create(shift)
+
+        await self.gen_repo.add_event(
+            EventLog(
+                event_type=EventType.SHIFT_STARTED.value,
+                generator_id=data.generator_id,
+                performed_by=current_user.id,
+                meta={
+                    "shift_number": shift_number,
+                    "generator_id": str(data.generator_id),
+                    "generator_name": generator.name,
+                },
             )
+        )
 
+        await self.db.flush()
         return created
 
     async def stop(self, shift_id: uuid.UUID, current_user: User) -> Shift:
@@ -114,47 +115,46 @@ class ShiftService:
         shift.motohours_accumulated = motohours_accumulated
         shift.status = ShiftStatus.CLOSED.value
 
-        async with self.db.begin():
-            updated = await self.repo.update(shift)
+        updated = await self.repo.update(shift)
 
-            # Update fuel stock
-            if fuel_consumed:
-                stock = await self.fuel_repo.get_stock()
-                if stock:
-                    stock.current_liters -= fuel_consumed
-                    await self.fuel_repo.update_stock(stock)
+        if fuel_consumed:
+            stock = await self.fuel_repo.get_stock()
+            if stock:
+                stock.current_liters -= fuel_consumed
+                await self.fuel_repo.update_stock(stock)
 
-            generator = await self.gen_repo.get_by_id(shift.generator_id)
-            initial = (
-                Decimal(str(generator.settings.initial_motohours))
-                if generator and generator.settings and generator.settings.initial_motohours
-                else Decimal("0")
-            )
-            hours_added = await self.moto_repo.get_total_hours_added(shift.generator_id)
-            total_after = initial + Decimal(str(hours_added)) + motohours_accumulated
+        generator = await self.gen_repo.get_by_id(shift.generator_id)
+        initial = (
+            Decimal(str(generator.settings.initial_motohours))
+            if generator and generator.settings and generator.settings.initial_motohours
+            else Decimal("0")
+        )
+        hours_added = await self.moto_repo.get_total_hours_added(shift.generator_id)
+        total_after = initial + Decimal(str(hours_added)) + motohours_accumulated
 
-            moto_log = MotohoursLog(
+        moto_log = MotohoursLog(
+            generator_id=shift.generator_id,
+            shift_id=shift.id,
+            hours_added=motohours_accumulated,
+            total_after=total_after,
+        )
+        self.db.add(moto_log)
+
+        await self.gen_repo.add_event(
+            EventLog(
+                event_type=EventType.SHIFT_STOPPED.value,
                 generator_id=shift.generator_id,
-                shift_id=shift.id,
-                hours_added=motohours_accumulated,
-                total_after=total_after,
+                performed_by=current_user.id,
+                meta={
+                    "shift_number": shift.shift_number,
+                    "duration_minutes": float(duration_minutes),
+                    "fuel_consumed_liters": float(fuel_consumed) if fuel_consumed is not None else None,
+                    "motohours_accumulated": float(motohours_accumulated),
+                },
             )
-            self.db.add(moto_log)
+        )
 
-            await self.gen_repo.add_event(
-                EventLog(
-                    event_type=EventType.SHIFT_STOPPED.value,
-                    generator_id=shift.generator_id,
-                    performed_by=current_user.id,
-                    meta={
-                        "shift_number": shift.shift_number,
-                        "duration_minutes": float(duration_minutes),
-                        "fuel_consumed_liters": float(fuel_consumed) if fuel_consumed is not None else None,
-                        "motohours_accumulated": float(motohours_accumulated),
-                    },
-                )
-            )
-
+        await self.db.flush()
         return updated
 
     async def get_work_time_settings(self) -> SystemSettings | None:
@@ -164,32 +164,32 @@ class ShiftService:
         self, data: WorkTimeUpdate, current_user: User
     ) -> SystemSettings:
         settings = await self.settings_repo.get()
-        async with self.db.begin():
-            if settings is None:
-                settings = SystemSettings(
-                    work_time_start=data.work_time_start,
-                    work_time_end=data.work_time_end,
-                    updated_by=current_user.id,
-                )
-                self.db.add(settings)
-            else:
-                settings.work_time_start = data.work_time_start
-                settings.work_time_end = data.work_time_end
-                settings.updated_by = current_user.id
-                await self.settings_repo.update(settings)
 
-            await self.gen_repo.add_event(
-                EventLog(
-                    event_type=EventType.SYSTEM_SETTINGS_UPDATED.value,
-                    generator_id=None,
-                    performed_by=current_user.id,
-                    meta={
-                        "work_time_start": data.work_time_start.strftime("%H:%M"),
-                        "work_time_end": data.work_time_end.strftime("%H:%M"),
-                    },
-                )
+        if settings is None:
+            settings = SystemSettings(
+                work_time_start=data.work_time_start,
+                work_time_end=data.work_time_end,
+                updated_by=current_user.id,
             )
+            self.db.add(settings)
+        else:
+            settings.work_time_start = data.work_time_start
+            settings.work_time_end = data.work_time_end
+            settings.updated_by = current_user.id
+            await self.settings_repo.update(settings)
 
+        await self.gen_repo.add_event(
+            EventLog(
+                event_type=EventType.SYSTEM_SETTINGS_UPDATED.value,
+                generator_id=None,
+                performed_by=current_user.id,
+                meta={
+                    "work_time_start": data.work_time_start.strftime("%H:%M"),
+                    "work_time_end": data.work_time_end.strftime("%H:%M"),
+                },
+            )
+        )
+
+        await self.db.flush()
         await self.db.refresh(settings)
-
         return settings
