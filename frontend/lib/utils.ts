@@ -14,8 +14,15 @@ export function formatDuration(seconds: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export function formatLiters(liters: number): string {
-  return `${liters.toFixed(1)} л`;
+/**
+ * Formats a number (or string/Decimal from the backend) as liters.
+ * Backend returns Decimal fields as strings (e.g. "123.45"), so we
+ * always coerce to Number before calling toFixed.
+ */
+export function formatLiters(liters: number | string | null | undefined): string {
+  const n = Number(liters);
+  if (isNaN(n)) return '— л';
+  return `${n.toFixed(1)} л`;
 }
 
 export function formatDateRelative(dateStr: string): string {
