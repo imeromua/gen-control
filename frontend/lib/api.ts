@@ -41,15 +41,20 @@ export const api = {
 
   // Shifts
   getShifts: (params?: string) => request<ShiftList>(`/api/shifts${params ? '?' + params : ''}`),
-  startShift: (data: Record<string, unknown>) => request<ShiftItem>('/api/shifts/start', { method: 'POST', body: JSON.stringify(data) }),
-  stopShift: () => request<ShiftItem>('/api/shifts/stop', { method: 'POST' }),
+  startShift: (data: Record<string, unknown>) =>
+    request<ShiftItem>('/api/shifts/start', { method: 'POST', body: JSON.stringify(data) }),
+  // POST /api/shifts/{shiftId}/stop  — shift_id обов'язковий
+  stopShift: (shiftId: string) =>
+    request<ShiftItem>(`/api/shifts/${shiftId}/stop`, { method: 'POST' }),
 
   // Fuel
   getFuelStock: () => request<FuelStockData>('/api/fuel/stock'),
   getFuelDeliveries: () => request<FuelDeliveryList>('/api/fuel/deliveries'),
   getFuelRefills: () => request<FuelRefillList>('/api/fuel/refills'),
-  addFuelDelivery: (data: Record<string, unknown>) => request<FuelDeliveryItem>('/api/fuel/deliveries', { method: 'POST', body: JSON.stringify(data) }),
-  addFuelRefill: (data: Record<string, unknown>) => request<FuelRefillItem>('/api/fuel/refills', { method: 'POST', body: JSON.stringify(data) }),
+  addFuelDelivery: (data: Record<string, unknown>) =>
+    request<FuelDeliveryItem>('/api/fuel/deliveries', { method: 'POST', body: JSON.stringify(data) }),
+  addFuelRefill: (data: Record<string, unknown>) =>
+    request<FuelRefillItem>('/api/fuel/refills', { method: 'POST', body: JSON.stringify(data) }),
 
   // Generators
   getGenerators: () => request<GeneratorList>('/api/generators'),
@@ -62,14 +67,15 @@ export const api = {
     request<GeneratorItem>(`/api/generators/${id}/settings`, { method: 'PUT', body: JSON.stringify(data) }),
   recordMaintenance: (id: string | number, data: Record<string, unknown>) =>
     request<GeneratorItem>(`/api/generators/${id}/maintenance`, { method: 'POST', body: JSON.stringify(data) }),
-  // DELETE /api/generators/{id} — м'яке видалення (is_active = false)
   deleteGenerator: (id: string) =>
     request<GeneratorItem>(`/api/generators/${id}`, { method: 'DELETE' }),
 
   // Outage
   getOutageSchedule: () => request<OutageList>('/api/outage/schedule'),
-  addOutage: (data: Record<string, unknown>) => request<OutageItem>('/api/outage/schedule', { method: 'POST', body: JSON.stringify(data) }),
-  deleteOutage: (id: number) => request<void>(`/api/outage/schedule/${id}`, { method: 'DELETE' }),
+  addOutage: (data: Record<string, unknown>) =>
+    request<OutageItem>('/api/outage/schedule', { method: 'POST', body: JSON.stringify(data) }),
+  deleteOutage: (id: number) =>
+    request<void>(`/api/outage/schedule/${id}`, { method: 'DELETE' }),
 
   // Events
   getEvents: (params?: string) => request<EventList>(`/api/events${params ? '?' + params : ''}`),

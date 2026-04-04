@@ -5,7 +5,7 @@ import { useShiftTimer } from '@/hooks/useShiftTimer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { formatDuration, formatLiters, formatDateTime, formatDateRelative } from '@/lib/utils';
+import { formatDuration, formatLiters, formatDateRelative } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/useToast';
 import { useState } from 'react';
@@ -39,12 +39,12 @@ export default function DashboardPage() {
   const { data, isLoading, mutate } = useDashboard();
   const elapsed = useShiftTimer(data?.active_shift?.started_at);
   const [confirming, setConfirming] = useState<'start' | 'stop' | null>(null);
-  const [starting, setStarting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const handleStart = async () => {
     if (confirming !== 'start') { setConfirming('start'); return; }
     setConfirming(null);
-    setStarting(true);
+    setActionLoading(true);
     try {
       const generators = data?.generators || [];
       if (generators.length === 0) throw new Error('Немає активних генераторів');
@@ -54,22 +54,25 @@ export default function DashboardPage() {
     } catch (err: unknown) {
       toast({ title: 'Помилка', description: err instanceof Error ? err.message : 'Невідома помилка', variant: 'destructive' });
     } finally {
-      setStarting(false);
+      setActionLoading(false);
     }
   };
 
   const handleStop = async () => {
     if (confirming !== 'stop') { setConfirming('stop'); return; }
     setConfirming(null);
-    setStarting(true);
+    setActionLoading(true);
     try {
-      await api.stopShift();
+      // Бекенд: POST /shifts/{shift_id}/stop — shift_id обов'язковий
+      const shiftId = data?.active_shift?.id;
+      if (!shiftId) throw new Error('Немає активної зміни');
+      await api.stopShift(shiftId);
       toast({ title: 'Зміну завершено' });
       mutate();
     } catch (err: unknown) {
       toast({ title: 'Помилка', description: err instanceof Error ? err.message : 'Невідома помилка', variant: 'destructive' });
     } finally {
-      setStarting(false);
+      setActionLoading(false);
     }
   };
 
@@ -86,7 +89,7 @@ export default function DashboardPage() {
   }
 
   const fuelPct = data?.fuel_stock
-    ? Math.round((data.fuel_stock.current_liters / data.fuel_stock.max_limit_liters) * 100)
+    ? Math.round((Number(data.fuel_stock.current_liters) / Number(data.fuel_stock.max_limit_liters)) * 100)
     : 0;
   const isLowFuel = data?.fuel_stock?.warning_active;
   const isCriticalFuel = data?.fuel_stock?.critical_active;
@@ -94,7 +97,7 @@ export default function DashboardPage() {
   return (
     <AppLayout>
       <div className="p-4 space-y-4 max-w-6xl mx-auto">
-        {/* Start/Stop Button */}
+        {/* Start/Stop */}
         <Card>
           <CardContent className="p-6">
             {data?.active_shift ? (
@@ -111,12 +114,13 @@ export default function DashboardPage() {
                   {data.active_shift.started_by_name ? ` • Запустив: ${data.active_shift.started_by_name}` : ''}
                 </div>
                 <div className="text-sm">
-                  Паливо (оцінка): <strong>{formatLiters(data.active_shift.fuel_consumed_estimate_liters || 0)}</strong> •
-                  Тривалість: <strong>{(data.active_shift.duration_minutes / 60).toFixed(2)} год</strong>
+                  Паливо (оцінка): <strong>{formatLiters(data.active_shift.fuel_consumed_estimate_liters ?? 0)}</strong>
+                  {' • '}
+                  Тривалість: <strong>{(Number(data.active_shift.duration_minutes) / 60).toFixed(2)} год</strong>
                 </div>
                 {confirming === 'stop' ? (
                   <div className="flex gap-2">
-                    <Button variant="destructive" onClick={handleStop} disabled={starting} className="flex-1">
+                    <Button variant="destructive" onClick={handleStop} disabled={actionLoading} className="flex-1">
                       ⚠️ Підтвердити зупинку
                     </Button>
                     <Button variant="outline" onClick={() => setConfirming(null)} className="flex-1">
@@ -124,7 +128,7 @@ export default function DashboardPage() {
                     </Button>
                   </div>
                 ) : (
-                  <Button variant="destructive" onClick={handleStop} disabled={starting} className="w-full lg:w-auto">
+                  <Button variant="destructive" onClick={handleStop} disabled={actionLoading} className="w-full lg:w-auto">
                     ⏹ Зупинити генератор
                   </Button>
                 )}
@@ -137,7 +141,7 @@ export default function DashboardPage() {
                 </div>
                 {confirming === 'start' ? (
                   <div className="flex gap-2">
-                    <Button onClick={handleStart} disabled={starting} className="flex-1">
+                    <Button onClick={handleStart} disabled={actionLoading} className="flex-1">
                       ✅ Підтвердити запуск
                     </Button>
                     <Button variant="outline" onClick={() => setConfirming(null)} className="flex-1">
@@ -145,7 +149,7 @@ export default function DashboardPage() {
                     </Button>
                   </div>
                 ) : (
-                  <Button onClick={handleStart} disabled={starting} size="lg" className="w-full lg:w-auto">
+                  <Button onClick={handleStart} disabled={actionLoading} size="lg" className="w-full lg:w-auto">
                     ▶️ Запустити генератор
                   </Button>
                 )}
@@ -205,7 +209,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Годин роботи</span>
-                  <strong>{(data?.today_stats?.total_hours_worked ?? 0).toFixed(1)}</strong>
+                  <strong>{Number(data?.today_stats?.total_hours_worked ?? 0).toFixed(1)}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Витрачено палива</span>
@@ -246,14 +250,9 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {data.generators.map((gen: GeneratorDashboard) => {
               const toHours = gen.hours_to_next_to ?? null;
-              const maintPct = gen.hours_to_next_to != null && gen.motohours_since_last_to != null
-                ? Math.min(
-                    Math.round(
-                      (gen.motohours_since_last_to /
-                        (gen.motohours_since_last_to + gen.hours_to_next_to)) * 100
-                    ),
-                    100
-                  )
+              const motoSinceTo = Number(gen.motohours_since_last_to);
+              const maintPct = toHours != null
+                ? Math.min(Math.round((motoSinceTo / (motoSinceTo + Number(toHours))) * 100), 100)
                 : 0;
               return (
                 <Card key={gen.id}>
