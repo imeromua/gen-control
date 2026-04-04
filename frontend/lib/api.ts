@@ -36,8 +36,10 @@ export const api = {
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
 
   // Dashboard
-  dashboardSummary: () => request<DashboardData>('/api/dashboard/summary'),
+  // GET /api/dashboard — повна відповідь з generators[], fuel_stock, active_shift і т.д.
   dashboard: () => request<DashboardData>('/api/dashboard'),
+  // GET /api/dashboard/summary — спрощена відповідь БЕЗ generators (лише для статус-бару)
+  dashboardSummary: () => request<DashboardSummaryData>('/api/dashboard/summary'),
 
   // Shifts
   getShifts: (params?: string) => request<ShiftList>(`/api/shifts${params ? '?' + params : ''}`),
@@ -52,7 +54,10 @@ export const api = {
   addFuelRefill: (data: Record<string, unknown>) => request<FuelRefillItem>('/api/fuel/refills', { method: 'POST', body: JSON.stringify(data) }),
 
   // Generators
+  // GET /api/generators — список базових даних (id, name, type, is_active, ...)
   getGenerators: () => request<GeneratorList>('/api/generators'),
+  // GET /api/generators/{id}/status — повний статус (motohours, TO, паливо)
+  getGeneratorStatus: (id: string) => request<GeneratorStatusData>(`/api/generators/${id}/status`),
   createGenerator: (data: Record<string, unknown>) =>
     request<GeneratorItem>('/api/generators', { method: 'POST', body: JSON.stringify(data) }),
   updateGenerator: (id: string | number, data: Record<string, unknown>) =>
@@ -74,6 +79,7 @@ export const api = {
 // Loose types for API responses
 type User = Record<string, unknown>;
 type DashboardData = Record<string, unknown>;
+type DashboardSummaryData = Record<string, unknown>;
 type ShiftList = Record<string, unknown> | unknown[];
 type ShiftItem = Record<string, unknown>;
 type FuelStockData = Record<string, unknown>;
@@ -83,6 +89,7 @@ type FuelDeliveryItem = Record<string, unknown>;
 type FuelRefillItem = Record<string, unknown>;
 type GeneratorList = Record<string, unknown> | unknown[];
 type GeneratorItem = Record<string, unknown>;
+type GeneratorStatusData = Record<string, unknown>;
 type OutageList = Record<string, unknown> | unknown[];
 type OutageItem = Record<string, unknown>;
 type EventList = Record<string, unknown> | unknown[];
